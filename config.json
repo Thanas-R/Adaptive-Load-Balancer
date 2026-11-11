@@ -1,0 +1,68 @@
+{
+  "network": {
+    "vip": "10.0.0.100",
+    "vip_mac": "00:00:00:00:00:fe",
+    "service_port": 8000,
+    "subnet": "10.0.0.0/24",
+    "switch_dpid": 1
+  },
+  "client": {
+    "id": "h1",
+    "ip": "10.0.0.1",
+    "mac": "00:00:00:00:00:01",
+    "switch_port": 1
+  },
+  "backends": [
+    {
+      "id": "h2",
+      "ip": "10.0.0.2",
+      "mac": "00:00:00:00:00:02",
+      "service_port": 8000,
+      "telemetry_port": 9002,
+      "switch_port": 2,
+      "capacity": 100,
+      "initial_delay_ms": 20.0
+    },
+    {
+      "id": "h3",
+      "ip": "10.0.0.3",
+      "mac": "00:00:00:00:00:03",
+      "service_port": 8000,
+      "telemetry_port": 9003,
+      "switch_port": 3,
+      "capacity": 100,
+      "initial_delay_ms": 20.0
+    },
+    {
+      "id": "h4",
+      "ip": "10.0.0.4",
+      "mac": "00:00:00:00:00:04",
+      "service_port": 8000,
+      "telemetry_port": 9004,
+      "switch_port": 4,
+      "capacity": 100,
+      "initial_delay_ms": 20.0
+    }
+  ],
+  "controller": {
+    "of_host": "0.0.0.0",
+    "of_port": 6653,
+    "flow_idle_timeout": 30,
+    "flow_hard_timeout": 300
+  },
+  "algorithm": {
+    "mode": "adaptive",
+    "weights": {
+      "active_connections": 0.50,
+      "smoothed_latency": 0.35,
+      "error_rate": 0.15
+    },
+    "ema_alpha": 0.25,
+    "health_check": {
+      "probe_interval_sec": 1.0,
+      "timeout_sec": 2.5,
+      "max_consecutive_failures": 3,
+      "recovery_cooldown_sec": 5.0
+    }
+  }
+}

@@ -1,0 +1,2145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SDN Adaptive Load Balancer / 3D Topology Visualizer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500;600;700;800&display=swap');
+
+  :root[data-theme="light"] {
+    --bg-color: #E5E0D4;
+    --card-bg: rgba(255, 255, 255, 0.94);
+    --ui-border: rgba(15, 23, 42, 0.12);
+    --ui-border-hover: rgba(15, 23, 42, 0.24);
+    --ui-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.04);
+    --ui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --ui-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
+    --text-primary: #0F172A;
+    --text-secondary: #334155;
+    --text-muted: #64748B;
+    --teal: #1D5B68;
+    --teal-hover: #164650;
+    --ice-blue: #B2D0D0;
+    --sand: #E5E0D4;
+    --moss: #2E6B34;
+    --amber: #C2410C;
+    --red: #B91C1C;
+    --green: #15803D;
+    --grid-line: rgba(15, 23, 42, 0.06);
+  }
+
+  :root[data-theme="dark"] {
+    --bg-color: #121316;
+    --card-bg: rgba(24, 26, 31, 0.94);
+    --ui-border: rgba(255, 255, 255, 0.12);
+    --ui-border-hover: rgba(255, 255, 255, 0.26);
+    --ui-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.4);
+    --ui-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --ui-shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.6), 0 12px 32px rgba(0, 0, 0, 0.7);
+    --text-primary: #F1F5F9;
+    --text-secondary: #CBD5E1;
+    --text-muted: #8292A2;
+    --teal: #2A7A8A;
+    --teal-hover: #35909F;
+    --ice-blue: #C6DADA;
+    --sand: #E5E0D4;
+    --moss: #4ADE80;
+    --amber: #FBBF24;
+    --red: #F87171;
+    --green: #34D399;
+    --grid-line: rgba(255, 255, 255, 0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--bg-color);
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: var(--text-primary);
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  #webgl-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    outline: none;
+    cursor: grab;
+    z-index: 1;
+  }
+  #webgl-canvas:active { cursor: grabbing; }
+
+  /* ── HEADER ── */
+  header {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+    pointer-events: none;
+    gap: 16px;
+  }
+
+  .ui-card {
+    pointer-events: auto;
+    background: var(--card-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--ui-border);
+    box-shadow: var(--ui-shadow);
+    border-radius: 4px;
+    height: 46px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 7px;
+    border-radius: 3px;
+    background: var(--teal);
+    color: #ffffff;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    line-height: 1;
+  }
+
+  .title-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .title-group h1 {
+    font-family: 'Space Grotesk', -apple-system, sans-serif;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+  .title-group .sub {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--teal);
+    line-height: 1.1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .title-group .sub .vip-pill {
+    background: rgba(29, 91, 104, 0.12);
+    color: var(--teal);
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .stats-cluster {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .stats-cluster .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.15;
+  }
+  .stats-cluster .stat span {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .stats-cluster .stat strong {
+    font-size: 12.5px;
+    color: var(--teal);
+    font-weight: 800;
+  }
+
+  .ui-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--ui-border);
+    flex-shrink: 0;
+  }
+
+  .btn-theme {
+    height: 30px;
+    background: transparent;
+    border: 1px solid var(--ui-border);
+    color: var(--text-primary);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    padding: 0 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+  .btn-theme:hover {
+    border-color: var(--ui-border-hover);
+    background: rgba(15, 23, 42, 0.04);
+  }
+  .btn-theme svg {
+    width: 14px;
+    height: 14px;
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  /* ── BOTTOM DOCK ── */
+  #dock-container {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    z-index: 50;
+    pointer-events: none;
+  }
+
+  .dock-box {
+    pointer-events: auto;
+    background: var(--card-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--ui-border);
+    box-shadow: var(--ui-shadow-lg);
+    border-radius: 4px;
+    height: 44px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .dock-btn {
+    height: 32px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 0 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+  }
+  .dock-btn:hover {
+    background: rgba(15, 23, 42, 0.05);
+    color: var(--text-primary);
+    border-color: var(--ui-border);
+  }
+  .dock-btn.active {
+    background: var(--teal);
+    color: #ffffff;
+    border-color: var(--teal);
+    box-shadow: 0 1px 4px rgba(29, 91, 104, 0.3);
+  }
+  .dock-btn.hard-btn {
+    color: var(--red);
+  }
+  .dock-btn.hard-btn:hover {
+    background: rgba(185, 28, 28, 0.08);
+  }
+  .dock-btn.hard-btn.active {
+    background: var(--red);
+    color: #ffffff;
+    border-color: var(--red);
+  }
+
+  .dock-btn.auto-btn {
+    border: 1px solid var(--ui-border);
+    background: transparent;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    padding: 0 9px;
+  }
+  .dock-btn.auto-btn.running {
+    background: rgba(46, 107, 52, 0.12);
+    color: var(--moss);
+    border-color: rgba(46, 107, 52, 0.3);
+  }
+  .dock-btn.auto-btn svg {
+    width: 10px;
+    height: 10px;
+    fill: currentColor;
+  }
+
+  /* ── CLIENT COUNTER IN DOCK ── */
+  .counter-cluster {
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--ui-border);
+    background: rgba(15, 23, 42, 0.02);
+    padding: 0 4px 0 8px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .counter-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-right: 2px;
+  }
+  .counter-btn {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+    border: 1px solid var(--ui-border);
+    border-radius: 2px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    line-height: 1;
+  }
+  .counter-btn:hover {
+    background: var(--teal);
+    color: #ffffff;
+    border-color: var(--teal);
+  }
+  .counter-btn.max-btn {
+    width: auto;
+    padding: 0 6px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+  }
+  #client-count-display {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--teal);
+    min-width: 18px;
+    text-align: center;
+  }
+
+  /* ── HOVER CARD ── */
+  #hover-card {
+    position: absolute;
+    pointer-events: none;
+    display: none;
+    z-index: 100;
+    background: var(--card-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--ui-border);
+    box-shadow: var(--ui-shadow-lg);
+    border-radius: 4px;
+    padding: 10px 12px;
+    width: 220px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--ui-border);
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--teal);
+  }
+  .card-status {
+    font-size: 8.5px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background: var(--moss);
+    color: #ffffff;
+    letter-spacing: 0.4px;
+  }
+  .card-status.degraded { background: var(--amber); }
+  .card-status.dead { background: var(--red); }
+  .card-status.warming { background: var(--teal); }
+  .card-status.overloaded { background: var(--amber); }
+
+  .card-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    margin: 3px 0;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .card-row strong {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+  /* ── MININET LIVE EVENT TICKER ── */
+  #sdn-console-pill {
+    position: absolute;
+    bottom: 74px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    background: var(--card-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--ui-border);
+    border-radius: 4px;
+    box-shadow: var(--ui-shadow-sm);
+    height: 28px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    z-index: 45;
+    white-space: nowrap;
+    max-width: 90vw;
+    overflow: hidden;
+  }
+  .console-tag {
+    background: var(--teal);
+    color: #ffffff;
+    font-size: 8.5px;
+    font-weight: 800;
+    padding: 2px 5px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+  .console-text {
+    color: var(--text-secondary);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+
+<body>
+<div id="webgl-canvas"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="ui-card">
+    <div class="logo-badge">SDN</div>
+    <div class="title-group">
+      <h1>Adaptive Load Balancer</h1>
+      <div class="sub">
+        <span>OpenFlow 1.3</span>
+        <span class="vip-pill">VIP: 10.0.0.100:8000</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ui-card">
+    <div class="stats-cluster">
+      <div class="stat">
+        <span>Throughput</span>
+        <strong id="val-tput">527.9 req/s</strong>
+      </div>
+      <div class="stat">
+        <span>Avg Latency</span>
+        <strong id="val-lat">20.5 ms</strong>
+      </div>
+      <div class="stat">
+        <span>Active Flows</span>
+        <strong id="val-flows">12</strong>
+      </div>
+      <div class="stat">
+        <span>P95 Tail</span>
+        <strong id="val-p95">34.1 ms</strong>
+      </div>
+    </div>
+    <div class="ui-sep"></div>
+    <button class="btn-theme" onclick="toggleTheme()" id="theme-btn">
+      <span id="theme-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </span>
+      <span id="theme-lbl">Dark</span>
+    </button>
+  </div>
+</header>
+
+<!-- MININET LIVE SDN CONTROLLER EVENT TICKER -->
+<div id="sdn-console-pill">
+  <span class="console-tag">MININET OF1.3</span>
+  <span class="console-text" id="sdn-log-text">[s1] Normal Balanced: TCP handshakes load-balanced across h2, h3, h4 (EMA costs: 0.24, 0.18, 0.21)</span>
+</div>
+
+<!-- BOTTOM DOCK -->
+<div id="dock-container">
+  <div class="dock-box">
+    <button class="dock-btn active" onclick="switchScenario(1)">1. Normal</button>
+    <button class="dock-btn" onclick="switchScenario(2)">2. h2 Slow (200ms)</button>
+    <button class="dock-btn" onclick="switchScenario(3)">3. h3 Dead</button>
+    <button class="dock-btn" onclick="switchScenario(4)">4. h3 Recovery</button>
+    <button class="dock-btn" onclick="switchScenario(5)">5. Adaptive vs RR</button>
+    <button class="dock-btn hard-btn" onclick="switchScenario(6)">6. Hard Overload</button>
+    <div class="ui-sep"></div>
+    <button id="btn-auto" class="dock-btn auto-btn running" onclick="toggleAuto()">
+      <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      Pause
+    </button>
+    <div class="ui-sep"></div>
+    <div class="counter-cluster">
+      <span class="counter-label">Clients</span>
+      <button class="counter-btn" onclick="adjustClients(-1)" title="Decrease">-</button>
+      <span id="client-count-display">1</span>
+      <button class="counter-btn" onclick="adjustClients(1)" title="Increase">+</button>
+      <button class="counter-btn max-btn" onclick="setMaxClients()" title="Max Clients (8)">MAX</button>
+    </div>
+  </div>
+</div>
+
+<!-- HOVER INSPECT CARD -->
+<div id="hover-card">
+  <div class="card-top">
+    <span class="card-title" id="dev-title">Server h2</span>
+    <span class="card-status" id="dev-status">HEALTHY</span>
+  </div>
+  <div class="card-row"><span>Address</span><strong id="dev-ip">10.0.0.2:8000</strong></div>
+  <div class="card-row"><span>Switch Port</span><strong id="dev-port">s1-eth2</strong></div>
+  <div class="card-row"><span>Latency</span><strong id="dev-lat">20.0 ms</strong></div>
+  <div class="card-row"><span>Active Conns</span><strong id="dev-conns">4</strong></div>
+  <div class="card-row"><span>Load Score</span><strong id="dev-score">0.240</strong></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  PALETTE SPECIFICATION (ARCHITECTURAL SCANDINAVIAN THEME)
+// ══════════════════════════════════════════════════════════════
+const PALETTE = {
+  teal: 0x1D5B68,          // Theme Deep Teal (for all circuit wires & controllers)
+  iceBlue: 0xB2D0D0,       // Theme Ice Blue (packets & highlights)
+  sand: 0xEFEAE0,          // Light mode sand #EFEAE0
+  darkBg: 0x141414,        // Dark mode background -- charcoal grey (not blue)
+  moss: 0x3C5938,          // Forest Sage
+  sage: 0xAAB7A1,          // Muted Sage
+  pedestalBase: 0x1E2B32,  // Solid Pedestal Base
+  pedestalRim: 0xB2D0D0,   // Pedestal Rim
+  serverChassis: 0x1E313D, // Deep Server
+  serverTop: 0x2A4C5B,     // Server Top Panel
+  laptopColor: 0x626363,   // Laptop body color #626363
+  macAluminum: 0xC5CED6,   // Sleek Clean Aluminum Unibody
+  amber: 0xC2410C,         // Amber Warning
+  red: 0xB91C1C,           // Red Dead
+  green: 0x15803D,         // Green Healthy
+};
+
+const scenarioTelemetry = {
+  1: { // Normal Operation
+    h1:   { name: 'Client h1', ip: '10.0.0.1', status: 'HEALTHY', lat: '1.2 ms', conns: 12, score: '0.000' },
+    s1:   { name: 'Switch s1 (VIP)', ip: '10.0.0.100:8000', status: 'HEALTHY', lat: '0.8 ms', conns: 100, score: '0.180' },
+    ctrl: { name: 'SDN Controller', ip: '127.0.0.1:6653', status: 'HEALTHY', lat: '0.5 ms', conns: 3, score: '0.000' },
+    h2:   { name: 'Server h2', ip: '10.0.0.2:8002', status: 'HEALTHY', lat: '20.0 ms', conns: 4, score: '0.240' },
+    h3:   { name: 'Server h3', ip: '10.0.0.3:8003', status: 'HEALTHY', lat: '21.0 ms', conns: 4, score: '0.250' },
+    h4:   { name: 'Database h4', ip: '10.0.0.4:8004', status: 'HEALTHY', lat: '19.5 ms', conns: 4, score: '0.220' },
+  },
+  2: { // h2 Slowdown (200ms)
+    h1:   { name: 'Client h1', ip: '10.0.0.1', status: 'HEALTHY', lat: '26.9 ms', conns: 12, score: '0.000' },
+    s1:   { name: 'Switch s1 (VIP)', ip: '10.0.0.100:8000', status: 'HEALTHY', lat: '0.9 ms', conns: 85, score: '0.260' },
+    ctrl: { name: 'SDN Controller', ip: '127.0.0.1:6653', status: 'HEALTHY', lat: '0.5 ms', conns: 3, score: '0.000' },
+    h2:   { name: 'Server h2', ip: '10.0.0.2:8002', status: 'DEGRADED', lat: '220.0 ms', conns: 1, score: '0.640' },
+    h3:   { name: 'Server h3', ip: '10.0.0.3:8003', status: 'HEALTHY', lat: '21.5 ms', conns: 5, score: '0.255' },
+    h4:   { name: 'Database h4', ip: '10.0.0.4:8004', status: 'HEALTHY', lat: '20.1 ms', conns: 6, score: '0.228' },
+  },
+  3: { // h3 Crashed (Failover)
+    h1:   { name: 'Client h1', ip: '10.0.0.1', status: 'HEALTHY', lat: '27.4 ms', conns: 12, score: '0.000' },
+    s1:   { name: 'Switch s1 (VIP)', ip: '10.0.0.100:8000', status: 'HEALTHY', lat: '0.8 ms', conns: 70, score: '0.280' },
+    ctrl: { name: 'SDN Controller', ip: '127.0.0.1:6653', status: 'HEALTHY', lat: '0.6 ms', conns: 2, score: '0.000' },
+    h2:   { name: 'Server h2', ip: '10.0.0.2:8002', status: 'HEALTHY', lat: '20.2 ms', conns: 6, score: '0.242' },
+    h3:   { name: 'Server h3', ip: '10.0.0.3:8003', status: 'DEAD', lat: 'TIMEOUT', conns: 0, score: '999.000' },
+    h4:   { name: 'Database h4', ip: '10.0.0.4:8004', status: 'HEALTHY', lat: '19.8 ms', conns: 6, score: '0.224' },
+  },
+  4: { // h3 Recovery & Cooldown
+    h1:   { name: 'Client h1', ip: '10.0.0.1', status: 'HEALTHY', lat: '23.8 ms', conns: 12, score: '0.000' },
+    s1:   { name: 'Switch s1 (VIP)', ip: '10.0.0.100:8000', status: 'HEALTHY', lat: '0.8 ms', conns: 90, score: '0.210' },
+    ctrl: { name: 'SDN Controller', ip: '127.0.0.1:6653', status: 'HEALTHY', lat: '0.5 ms', conns: 3, score: '0.000' },
+    h2:   { name: 'Server h2', ip: '10.0.0.2:8002', status: 'HEALTHY', lat: '20.1 ms', conns: 5, score: '0.241' },
+    h3:   { name: 'Server h3', ip: '10.0.0.3:8003', status: 'WARMING', lat: '45.0 ms', conns: 2, score: '0.380' },
+    h4:   { name: 'Database h4', ip: '10.0.0.4:8004', status: 'HEALTHY', lat: '19.6 ms', conns: 5, score: '0.222' },
+  },
+  5: { // Benchmark: Adaptive vs Round-Robin
+    h1:   { name: 'Client h1', ip: '10.0.0.1', status: 'HEALTHY', lat: '20.4 ms', conns: 12, score: '0.000' },
+    s1:   { name: 'Switch s1 (VIP)', ip: '10.0.0.100:8000', status: 'HEALTHY', lat: '0.8 ms', conns: 100, score: '0.180' },
+    ctrl: { name: 'SDN Controller', ip: '127.0.0.1:6653', status: 'HEALTHY', lat: '0.5 ms', conns: 3, score: '0.000' },
+    h2:   { name: 'Server h2', ip: '10.0.0.2:8002', status: 'HEALTHY', lat: '20.0 ms', conns: 4, score: '0.240' },
+    h3:   { name: 'Server h3', ip: '10.0.0.3:8003', status: 'HEALTHY', lat: '21.0 ms', conns: 4, score: '0.250' },
+    h4:   { name: 'Database h4', ip: '10.0.0.4:8004', status: 'HEALTHY', lat: '19.5 ms', conns: 4, score: '0.220' },
+  },
+  6: { // Hard Scenario: Overload h2 + Kill h3 Mid-Run
+    h1:   { name: 'Client h1', ip: '10.0.0.1', status: 'HEALTHY', lat: '68.5 ms', conns: 12, score: '0.000' },
+    s1:   { name: 'Switch s1 (VIP)', ip: '10.0.0.100:8000', status: 'HEALTHY', lat: '1.4 ms', conns: 45, score: '0.450' },
+    ctrl: { name: 'SDN Controller', ip: '127.0.0.1:6653', status: 'HEALTHY', lat: '0.7 ms', conns: 1, score: '0.000' },
+    h2:   { name: 'Server h2', ip: '10.0.0.2:8002', status: 'DEGRADED', lat: '240.0 ms', conns: 0, score: '0.720' },
+    h3:   { name: 'Server h3', ip: '10.0.0.3:8003', status: 'DEAD', lat: 'TIMEOUT', conns: 0, score: '999.000' },
+    h4:   { name: 'Database h4', ip: '10.0.0.4:8004', status: 'OVERLOADED', lat: '45.0 ms', conns: 12, score: '0.485' },
+  }
+};
+
+const deviceRegistry = JSON.parse(JSON.stringify(scenarioTelemetry[1]));
+
+
+// ══════════════════════════════════════════════════════════════
+//  THREE.JS SCENE SETUP
+// ══════════════════════════════════════════════════════════════
+const container = document.getElementById('webgl-canvas');
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 15, 23);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+container.appendChild(renderer.domElement);
+renderer.setClearColor(0xEFEAE0, 0);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.maxPolarAngle = Math.PI * 0.46;
+controls.minDistance = 9;
+controls.maxDistance = 45;
+controls.target.set(0, 1.2, 0);
+
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xfffaee, 1.35);
+dirLight.position.set(16, 26, 18);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 60;
+dirLight.shadow.camera.left = -20;
+dirLight.shadow.camera.right = 20;
+dirLight.shadow.camera.top = 20;
+dirLight.shadow.camera.bottom = -20;
+dirLight.shadow.bias = -0.0004;
+scene.add(dirLight);
+
+const rimLight = new THREE.DirectionalLight(0xc6dada, 0.6);
+rimLight.position.set(-18, 14, -12);
+scene.add(rimLight);
+
+// Ground Shadow Plane (crisp grounding shadow against #E5E0D4)
+const shadowPlaneGeo = new THREE.PlaneGeometry(80, 80);
+const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.20 });
+const groundShadow = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat);
+groundShadow.rotation.x = -Math.PI / 2;
+groundShadow.position.y = 0.01;
+groundShadow.receiveShadow = true;
+scene.add(groundShadow);
+
+// Architectural Grid Floor on Ground (Subtle & Clean)
+let gridHelper = new THREE.GridHelper(54, 54, PALETTE.teal, 0x8CA0A0);
+gridHelper.position.y = 0.02;
+gridHelper.material.opacity = 0.16;
+gridHelper.material.transparent = true;
+scene.add(gridHelper);
+
+// ══════════════════════════════════════════════════════════════
+//  GEOMETRY HELPERS
+// ══════════════════════════════════════════════════════════════
+const interactiveObjects = [];
+
+function createRoundedRectShape(w, d, r) {
+  const shape = new THREE.Shape();
+  const x = -w / 2, y = -d / 2;
+  shape.moveTo(x + r, y);
+  shape.lineTo(x + w - r, y);
+  shape.quadraticCurveTo(x + w, y, x + w, y + r);
+  shape.lineTo(x + w, y + d - r);
+  shape.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+  shape.lineTo(x + r, y + d);
+  shape.quadraticCurveTo(x, y + d, x, y + d - r);
+  shape.lineTo(x, y + r);
+  shape.quadraticCurveTo(x, y, x + r, y);
+  return shape;
+}
+
+function createRoundedBoxGeometry(w, h, d, r) {
+  const shape = createRoundedRectShape(w, d, r);
+  const extrudeSettings = {
+    depth: h,
+    bevelEnabled: true,
+    bevelSegments: 4,
+    steps: 1,
+    bevelSize: r * 0.4,
+    bevelThickness: r * 0.4,
+  };
+  const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  geo.rotateX(Math.PI / 2);
+  geo.center();
+  return geo;
+}
+
+function createExactRoundedBoxGeometry(w, h, d, r) {
+  const shape = createRoundedRectShape(w, d, r);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: h,
+    bevelEnabled: false,
+    steps: 1,
+  });
+  geo.rotateX(Math.PI / 2);
+  geo.center();
+  return geo;
+}
+
+function createSmoothRoundedBoxGeometry(w, h, d, r, bevel = 0.03) {
+  const shape = createRoundedRectShape(w - bevel * 2, d - bevel * 2, r);
+  const extrudeSettings = {
+    depth: h - bevel * 2,
+    bevelEnabled: true,
+    bevelSegments: 4,
+    steps: 1,
+    bevelSize: bevel,
+    bevelThickness: bevel,
+  };
+  const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  geo.rotateX(Math.PI / 2);
+  geo.center();
+  return geo;
+}
+
+function createRoundedPlateGeometry(w, h, thickness, r, bevel = 0.015) {
+  const shape = new THREE.Shape();
+  const hw = (w - bevel * 2) / 2;
+  const hh = (h - bevel * 2) / 2;
+  const cr = Math.min(r, hw, hh);
+  shape.moveTo(-hw + cr, -hh);
+  shape.lineTo(hw - cr, -hh);
+  shape.quadraticCurveTo(hw, -hh, hw, -hh + cr);
+  shape.lineTo(hw, hh - cr);
+  shape.quadraticCurveTo(hw, hh, hw - cr, hh);
+  shape.lineTo(-hw + cr, hh);
+  shape.quadraticCurveTo(-hw, hh, -hw, hh - cr);
+  shape.lineTo(-hw, -hh + cr);
+  shape.quadraticCurveTo(-hw, -hh, -hw + cr, -hh);
+
+  const extrudeSettings = {
+    depth: Math.max(0.005, thickness - bevel * 2),
+    bevelEnabled: bevel > 0,
+    bevelSegments: 3,
+    steps: 1,
+    bevelSize: bevel,
+    bevelThickness: bevel,
+  };
+  const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  geo.center();
+  return geo;
+}
+
+// Comic Pedestal with Solid Ink Rim
+const themeMaterials = [];
+function registerThemeMaterial(mat, light, dark) {
+  mat.color.setHex(light);
+  themeMaterials.push({ mat, light, dark });
+  return mat;
+}
+
+const MAT = {
+  chassis: registerThemeMaterial(new THREE.MeshStandardMaterial({ roughness: 0.42, metalness: 0.42 }), 0x505d64, 0x333e45),
+  chassisTop: registerThemeMaterial(new THREE.MeshStandardMaterial({ roughness: 0.48, metalness: 0.36 }), 0x637077, 0x3d4950),
+  dark: registerThemeMaterial(new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.25 }), 0x2b3439, 0x1b2226),
+  aluminum: registerThemeMaterial(new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.62 }), 0xb6c0c4, 0x9fb0b8),
+  groove: new THREE.MeshStandardMaterial({ color: 0x20282d, roughness: 0.72, metalness: 0.15 }),
+  vent: new THREE.MeshStandardMaterial({ color: 0x1c2428, roughness: 0.85, metalness: 0.1 }),
+  teal: registerThemeMaterial(new THREE.MeshStandardMaterial({ roughness: 0.36, metalness: 0.28 }), 0x1D5B68, 0x2A7F90),
+};
+
+function roundedRectShape(w, d, r) {
+  const shape = new THREE.Shape();
+  const x = -w / 2;
+  const y = -d / 2;
+  r = Math.min(r, w / 2, d / 2);
+  shape.moveTo(x + r, y);
+  shape.lineTo(x + w - r, y);
+  shape.quadraticCurveTo(x + w, y, x + w, y + r);
+  shape.lineTo(x + w, y + d - r);
+  shape.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+  shape.lineTo(x + r, y + d);
+  shape.quadraticCurveTo(x, y + d, x, y + d - r);
+  shape.lineTo(x, y + r);
+  shape.quadraticCurveTo(x, y, x + r, y);
+  return shape;
+}
+
+function roundedBox(w, h, d, r) {
+  const shape = roundedRectShape(w, d, r);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: Math.max(0.01, h),
+    bevelEnabled: true,
+    bevelSegments: 3,
+    steps: 1,
+    bevelSize: Math.min(r * 0.4, 0.08),
+    bevelThickness: Math.min(r * 0.4, 0.08)
+  });
+  geo.rotateX(Math.PI / 2);
+  geo.center();
+  return geo;
+}
+
+function addMesh(parent, geo, mat, x, y, z, opts = {}) {
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  if (opts.rotY) mesh.rotation.y = opts.rotY;
+  if (opts.rotX) mesh.rotation.x = opts.rotX;
+  if (opts.rotZ) mesh.rotation.z = opts.rotZ;
+  mesh.castShadow = opts.shadow !== false;
+  mesh.receiveShadow = opts.receive !== false;
+  parent.add(mesh);
+  return mesh;
+}
+
+function makeLed(color, radius = 0.045) {
+  const mat = new THREE.MeshBasicMaterial({ color });
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 12, 12), mat);
+  return mesh;
+}
+
+function addHitbox(group, id, w, h, d, y) {
+  const mat = new THREE.MeshBasicMaterial({ visible: false });
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  mesh.position.y = y;
+  mesh.userData = { id: id };
+  group.add(mesh);
+  interactiveObjects.push(mesh);
+  return mesh;
+}
+
+function createPedestal(w, d, h, shapeType = 'rect') {
+  const group = new THREE.Group();
+
+  let baseGeo;
+  if (shapeType === 'circle') {
+    baseGeo = new THREE.CylinderGeometry(w / 2, w / 2, h, 36);
+  } else {
+    baseGeo = createRoundedBoxGeometry(w, h, d, 0.22);
+  }
+
+  const baseMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.pedestalBase,
+    roughness: 0.35,
+    metalness: 0.25,
+  });
+
+  const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+  baseMesh.position.y = h / 2;
+  baseMesh.castShadow = true;
+  baseMesh.receiveShadow = true;
+  group.add(baseMesh);
+
+  // Comic Ink Edge Rim
+  const rimMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.pedestalRim,
+    emissive: PALETTE.teal,
+    emissiveIntensity: 0.4,
+    roughness: 0.2,
+  });
+
+  if (shapeType === 'circle') {
+    const rimGeo = new THREE.TorusGeometry(w / 2, 0.035, 16, 48);
+    rimGeo.rotateX(Math.PI / 2);
+    const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+    rimMesh.position.y = h;
+    group.add(rimMesh);
+  } else {
+    const rimGeo = createRoundedBoxGeometry(w + 0.04, 0.04, d + 0.04, 0.24);
+    const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+    rimMesh.position.y = h;
+    group.add(rimMesh);
+  }
+
+  return group;
+}
+
+
+
+
+
+
+// ══════════════════════════════════════════════════════════════
+//  1. SDN CONTROLLER (AUTHENTIC CLOUD GATEWAY)
+// ══════════════════════════════════════════════════════════════
+let ctrlCloudMat = null;
+
+function createCloudController() {
+  const group = new THREE.Group();
+  group.position.set(0, 7.2, -6.5);
+
+  const shape = new THREE.Shape();
+  shape.moveTo(-3.0, -0.6);
+  shape.bezierCurveTo(-3.8, -0.4, -4.2, 1.2, -3.2, 2.2);
+  shape.bezierCurveTo(-3.6, 3.6, -1.8, 4.4, -0.6, 3.8);
+  shape.bezierCurveTo(0.4, 5.0, 2.6, 4.6, 3.2, 3.2);
+  shape.bezierCurveTo(4.4, 3.2, 4.6, 1.4, 3.8, 0.2);
+  shape.bezierCurveTo(4.2, -1.0, 2.8, -1.6, 1.6, -1.0);
+  shape.bezierCurveTo(0.6, -1.8, -1.8, -1.6, -3.0, -0.6);
+
+  const extrudeSettings = {
+    depth: 1.5,
+    bevelEnabled: true,
+    bevelSegments: 8,
+    steps: 2,
+    bevelSize: 0.35,
+    bevelThickness: 0.35,
+  };
+
+  const cloudGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  cloudGeo.center();
+
+  ctrlCloudMat = registerThemeMaterial(
+    new THREE.MeshStandardMaterial({
+      roughness: 0.24,
+      metalness: 0.28,
+    }),
+    0xEDF4FA,
+    0x263544
+  );
+
+  const cloudMesh = new THREE.Mesh(cloudGeo, ctrlCloudMat);
+  cloudMesh.castShadow = true;
+  cloudMesh.receiveShadow = true;
+  group.add(cloudMesh);
+
+
+  // 3 Recessed Circular Status Ports with Beveled Collars
+  const portOffsets = [-1.35, 0, 1.35];
+  const portColors = [0x2fb4d8, 0x48c774, 0xe09838];
+  portOffsets.forEach((xPos, idx) => {
+    const collarGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.12, 32);
+    collarGeo.rotateX(Math.PI / 2);
+    const collarMat = new THREE.MeshStandardMaterial({ color: 0x8296a4, roughness: 0.25, metalness: 0.72 });
+    const collar = new THREE.Mesh(collarGeo, collarMat);
+    collar.position.set(xPos, 0.1, 0.95);
+    group.add(collar);
+
+    const lensGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.14, 32);
+    lensGeo.rotateX(Math.PI / 2);
+    const lensMat = new THREE.MeshStandardMaterial({
+      color: portColors[idx],
+      emissive: portColors[idx],
+      emissiveIntensity: 0.75,
+      roughness: 0.15,
+      metalness: 0.1,
+    });
+    const lens = new THREE.Mesh(lensGeo, lensMat);
+    lens.position.set(xPos, 0.1, 0.98);
+    group.add(lens);
+  });
+
+  // Manifold Cable Ports at Bottom
+  const manifoldOffsets = [-0.6, -0.2, 0.2, 0.6];
+  manifoldOffsets.forEach(xPos => {
+    const portGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.35, 16);
+    const portMat = new THREE.MeshStandardMaterial({ color: 0x6e8494, roughness: 0.3, metalness: 0.65 });
+    const pMesh = new THREE.Mesh(portGeo, portMat);
+    pMesh.position.set(xPos, -1.8, 0);
+    group.add(pMesh);
+  });
+
+  // Glowing aura point light
+  const cloudLight = new THREE.PointLight(0x7fcfe8, 0.65, 9, 2);
+  cloudLight.position.set(0, 0, 1.8);
+  group.add(cloudLight);
+
+  addHitbox(group, 'ctrl', 7.5, 4.5, 3.2, 0.4);
+
+  group.userData = { id: 'ctrl', cloudMat: ctrlCloudMat };
+  scene.add(group);
+  return group;
+}
+
+
+// ══════════════════════════════════════════════════════════════
+//  2. OPEN VSWITCH s1 (1U RACK APPLIANCE)
+// ══════════════════════════════════════════════════════════════
+let switchPulseRing = null;
+
+function createSwitch() {
+  const group = new THREE.Group();
+  group.position.set(0, 0, 0.8);
+
+  const pedestal = createPedestal(6.4, 4.4, 0.26, 'rect');
+  group.add(pedestal);
+
+  // Rounded steel chassis
+  addMesh(group, roundedBox(5.2, 0.95, 2.6, 0.18), MAT.chassis, 0, 0.78, 0);
+
+  // Clean top plate
+  addMesh(group, roundedBox(5.0, 0.06, 2.4, 0.15), MAT.chassisTop, 0, 1.275, 0);
+
+  // Recessed vent field on top
+  addMesh(group, roundedBox(2.7, 0.022, 1.35, 0.12), MAT.groove, 0, 1.31, -0.05, { shadow: false });
+  for (let v = 0; v < 8; v++) {
+    addMesh(group, new THREE.BoxGeometry(1.9, 0.012, 0.045), MAT.vent, -0.45, 1.326, -0.55 + v * 0.145, { shadow: false, receive: false });
+  }
+
+  // Slightly proud front fascia
+  addMesh(group, roundedBox(4.92, 0.74, 0.08, 0.1), MAT.dark, 0, 0.78, 1.31);
+
+  // Angled accent strip across the front
+  addMesh(group, new THREE.BoxGeometry(4.86, 0.028, 0.025), MAT.teal, 0, 1.115, 1.36, { shadow: false, receive: false });
+
+  // Six RJ45 copper ports with activity LEDs
+  const portLeds = [];
+  for (let p = 0; p < 6; p++) {
+    const px = -2.02 + p * 0.56;
+    addMesh(group, roundedBox(0.34, 0.27, 0.12, 0.05), MAT.aluminum, px, 0.72, 1.36, { shadow: false });
+    addMesh(group, new THREE.BoxGeometry(0.23, 0.16, 0.035), new THREE.MeshBasicMaterial({ color: 0x0d1418 }), px, 0.71, 1.425, { shadow: false, receive: false });
+    addMesh(group, new THREE.BoxGeometry(0.16, 0.012, 0.012), new THREE.MeshBasicMaterial({ color: 0xc9a86a }), px, 0.665, 1.443, { shadow: false, receive: false });
+
+    const led = makeLed(p % 2 === 0 ? 0x6fa886 : 0x7ba3c1, 0.032);
+    led.position.set(px, 0.92, 1.37);
+    group.add(led);
+    portLeds.push(led);
+  }
+
+  // Two SFP+ cages on the right
+  for (let s = 0; s < 2; s++) {
+    const sx = 1.62 + s * 0.52;
+    addMesh(group, roundedBox(0.4, 0.29, 0.14, 0.04), MAT.aluminum, sx, 0.72, 1.36);
+    addMesh(group, new THREE.BoxGeometry(0.26, 0.15, 0.03), new THREE.MeshBasicMaterial({ color: 0x11181c }), sx, 0.72, 1.44, { shadow: false, receive: false });
+    addMesh(group, new THREE.BoxGeometry(0.1, 0.02, 0.02), MAT.teal, sx, 0.87, 1.43, { shadow: false, receive: false });
+  }
+
+  // Power button + pinhole reset
+  addMesh(group, new THREE.CylinderGeometry(0.075, 0.075, 0.035, 20), MAT.aluminum, 2.24, 0.72, 1.37, { rotX: Math.PI / 2, shadow: false });
+  addMesh(group, new THREE.CylinderGeometry(0.032, 0.032, 0.04, 16), new THREE.MeshBasicMaterial({ color: 0x233037 }), 2.24, 0.72, 1.392, { rotX: Math.PI / 2, shadow: false, receive: false });
+
+  // Three quiet status LEDs along the top back edge
+  const topLeds = [];
+  for (let t = 0; t < 3; t++) {
+    const led = makeLed(t === 0 ? 0x6fa886 : 0x8fb3cd, 0.028);
+    led.position.set(-1.9 + t * 0.14, 1.325, -1.02);
+    group.add(led);
+    topLeds.push(led);
+  }
+
+  // Load ring around the pedestal
+  const pulseMat = new THREE.MeshBasicMaterial({
+    color: 0x7ba3c1,
+    transparent: true,
+    opacity: 0.18,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const pulseGeo = new THREE.RingGeometry(3.06, 3.15, 96);
+  switchPulseRing = new THREE.Mesh(pulseGeo, pulseMat);
+  switchPulseRing.rotation.x = -Math.PI / 2;
+  switchPulseRing.position.y = 0.275;
+  group.add(switchPulseRing);
+
+  addHitbox(group, 's1', 5.7, 2.1, 3.6, 0.95);
+
+  group.userData = {
+    id: 's1',
+    portLeds,
+    topLeds,
+    pulseMat
+  };
+  scene.add(group);
+  return group;
+}
+
+
+// ══════════════════════════════════════════════════════════════
+//  3. CLIENT MACBOOK WORKSTATION (RETAINED RETINA MODEL)
+// ══════════════════════════════════════════════════════════════
+function createDetailedMacbook(x = -7.5, z = 1.0, clientId = 'h1') {
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
+
+  // High-tech solid pedestal surface underneath the client laptop
+  const pedestal = createPedestal(4.0, 2.8, 0.20, 'rect');
+  group.add(pedestal);
+
+  // Soft contact shadow directly under pedestal
+  const shadowGeo = new THREE.PlaneGeometry(4.2, 3.0);
+  const shadowMat = new THREE.MeshBasicMaterial({ color: 0x1A2830, transparent: true, opacity: 0.22 });
+  const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+  shadowMesh.rotation.x = -Math.PI / 2;
+  shadowMesh.position.y = 0.015;
+  group.add(shadowMesh);
+
+  // Connection port collar on the right edge of the client pad
+  const portGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.22, 16);
+  portGeo.rotateZ(Math.PI / 2);
+  const portMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.teal,
+    emissive: PALETTE.teal,
+    emissiveIntensity: 0.75,
+    roughness: 0.2,
+    metalness: 0.5
+  });
+  const portMesh = new THREE.Mesh(portGeo, portMat);
+  portMesh.position.set(2.0, 0.20, 0);
+  group.add(portMesh);
+
+  const matLaptop = new THREE.MeshStandardMaterial({ color: PALETTE.laptopColor, roughness: 0.35, metalness: 0.4 });
+  const matHinge = new THREE.MeshStandardMaterial({ color: 0x141E22, roughness: 0.5, metalness: 0.2 });
+
+  // Elevate the laptop so it sits securely on the pedestal surface (pedestal height: 0.22)
+  const laptopGroup = new THREE.Group();
+  laptopGroup.position.set(0, 0.13, 0);
+
+  // 1. Clean Minimal Unibody Base (#626363 / Silver aluminum)
+  const baseGeo = createRoundedBoxGeometry(3.8, 0.14, 2.6, 0.16);
+  const base = new THREE.Mesh(baseGeo, matLaptop);
+  base.position.set(0, 0.14, 0);
+  base.castShadow = true;
+  base.receiveShadow = true;
+  laptopGroup.add(base);
+
+  // --- MacBook Pro Keyboard ---
+  const matGreyKb = new THREE.MeshStandardMaterial({
+    color: 0x0D1013,
+    roughness: 0.60,
+    metalness: 0.30,
+  });
+  const kbGeo = createRoundedPlateGeometry(3.1, 1.25, 0.016, 0.04, 0.003);
+  kbGeo.rotateX(Math.PI / 2);
+  const kbMesh = new THREE.Mesh(kbGeo, matGreyKb);
+  kbMesh.position.set(0, 0.280, -0.48);
+  laptopGroup.add(kbMesh);
+
+  // Keycaps
+  const matKeycap = new THREE.MeshStandardMaterial({ color: 0x171A1D, roughness: 0.40, metalness: 0.20 });
+  const keyRows = 5;
+  const keysPerRow = 14;
+  const kw = 0.19, kh = 0.18;
+  const startX = -1.33, startZ = -0.96;
+
+  const keyGeo = createRoundedPlateGeometry(kw, kh, 0.013, 0.015, 0.001);
+  keyGeo.rotateX(Math.PI / 2);
+  const spaceBarGeo = createRoundedPlateGeometry(kw * 6 + 0.02 * 5, kh, 0.013, 0.015, 0.001);
+  spaceBarGeo.rotateX(Math.PI / 2);
+
+  for (let r = 0; r < keyRows; r++) {
+    for (let c = 0; c < keysPerRow; c++) {
+      if (r === keyRows - 1 && c >= 4 && c <= 9) {
+        if (c === 4) {
+          const spaceMesh = new THREE.Mesh(spaceBarGeo, matKeycap);
+          spaceMesh.position.set(startX + 6.5 * (kw + 0.02), 0.292, startZ + r * (kh + 0.04));
+          laptopGroup.add(spaceMesh);
+        }
+        continue;
+      }
+      const keyMesh = new THREE.Mesh(keyGeo, matKeycap);
+      keyMesh.position.set(startX + c * (kw + 0.02), 0.292, startZ + r * (kh + 0.04));
+      laptopGroup.add(keyMesh);
+    }
+  }
+
+  // Force Touch Glass Touchpad with generous gap from keyboard
+  const matTrackpadGlass = new THREE.MeshStandardMaterial({ color: 0x54585C, roughness: 0.25, metalness: 0.5 });
+  const trackGeo = createRoundedPlateGeometry(1.35, 0.78, 0.015, 0.05, 0.002);
+  trackGeo.rotateX(Math.PI / 2);
+  const trackpad = new THREE.Mesh(trackGeo, matTrackpadGlass);
+  trackpad.position.set(0, 0.280, 0.72);
+  laptopGroup.add(trackpad);
+
+  // Black Aluminum Hinge Bar
+  const hingeGeo = new THREE.CylinderGeometry(0.07, 0.07, 3.2, 24);
+  hingeGeo.rotateZ(Math.PI / 2);
+  const hinge = new THREE.Mesh(hingeGeo, matHinge);
+  hinge.position.set(0, 0.205, -1.27);
+  laptopGroup.add(hinge);
+
+  // Angled Display Lid
+  const lidGroup = new THREE.Group();
+  lidGroup.position.set(0, 0.205, -1.27);
+  lidGroup.rotation.x = -THREE.MathUtils.degToRad(20);
+
+  const lidGeo = createRoundedPlateGeometry(3.8, 2.5, 0.08, 0.16, 0.02);
+  const lidMesh = new THREE.Mesh(lidGeo, matLaptop);
+  lidMesh.position.set(0, 1.25, -0.04);
+  lidMesh.castShadow = true;
+  lidGroup.add(lidMesh);
+
+  // Edge-to-Edge Glass Bezel Framing
+  const matBezelGlass = new THREE.MeshStandardMaterial({ color: 0x0A0D10, roughness: 0.15, metalness: 0.8 });
+  const bezelGeo = createRoundedPlateGeometry(3.64, 2.36, 0.006, 0.10, 0.004);
+  const bezelMesh = new THREE.Mesh(bezelGeo, matBezelGlass);
+  bezelMesh.position.set(0, 1.25, 0.002);
+  lidGroup.add(bezelMesh);
+
+  // Liquid Retina XDR Display Panel (Pure Obsidian Black Glass)
+  const matDisplayScreen = new THREE.MeshStandardMaterial({
+    color: 0x080A0C,
+    emissive: 0x000000,
+    emissiveIntensity: 0.0,
+    roughness: 0.12,
+    metalness: 0.90,
+  });
+  const screenGeo = createRoundedPlateGeometry(3.40, 2.14, 0.008, 0.06, 0.002);
+  const screenMesh = new THREE.Mesh(screenGeo, matDisplayScreen);
+  screenMesh.position.set(0, 1.25, 0.007);
+  lidGroup.add(screenMesh);
+
+  // Flush Center Camera Lens dot
+  const camGeo = new THREE.CircleGeometry(0.02, 16);
+  const camMat = new THREE.MeshBasicMaterial({ color: 0x08101E });
+  const camMesh = new THREE.Mesh(camGeo, camMat);
+  camMesh.position.set(0, 2.37, 0.012);
+  lidGroup.add(camMesh);
+
+  laptopGroup.add(lidGroup);
+  group.add(laptopGroup);
+
+  group.userData = { id: clientId, matLaptop: matLaptop };
+  interactiveObjects.push(base, lidMesh);
+  scene.add(group);
+  return group;
+}
+
+// Client scaling and multi-node layouts (Max: 8 clients with spacious non-overlapping layout)
+const MAX_CLIENTS = 8;
+let currentClientCount = 1;
+let clientLaptops = [];
+
+const clientLayouts = {
+  1: [
+    { x: -8.0, z: 0.8 }
+  ],
+  2: [
+    { x: -8.0, z: -2.8 },
+    { x: -8.0, z: 4.4 }
+  ],
+  3: [
+    { x: -12.4, z: -4.4 },
+    { x: -7.6, z: 0.8 },
+    { x: -12.4, z: 6.0 }
+  ],
+  4: [
+    { x: -12.6, z: -5.6 },
+    { x: -7.6, z: -2.0 },
+    { x: -7.6, z: 3.6 },
+    { x: -12.6, z: 7.2 }
+  ],
+  5: [
+    { x: -12.6, z: -6.6 },
+    { x: -7.6, z: -3.0 },
+    { x: -12.6, z: 0.8 },
+    { x: -7.6, z: 4.6 },
+    { x: -12.6, z: 8.2 }
+  ],
+  6: [
+    { x: -12.8, z: -7.2 },
+    { x: -7.6, z: -4.0 },
+    { x: -12.8, z: -1.4 },
+    { x: -7.6, z: 2.4 },
+    { x: -12.8, z: 5.2 },
+    { x: -7.6, z: 8.4 }
+  ],
+  7: [
+    { x: -13.0, z: -7.8 },
+    { x: -7.6, z: -5.0 },
+    { x: -13.0, z: -2.5 },
+    { x: -7.6, z: 0.8 },
+    { x: -13.0, z: 3.8 },
+    { x: -7.6, z: 6.6 },
+    { x: -13.0, z: 9.2 }
+  ],
+  8: [
+    { x: -13.0, z: -8.2 },
+    { x: -7.6, z: -5.6 },
+    { x: -13.0, z: -3.2 },
+    { x: -7.6, z: -1.0 },
+    { x: -13.0, z: 1.6 },
+    { x: -7.6, z: 3.8 },
+    { x: -13.0, z: 6.4 },
+    { x: -7.6, z: 8.8 }
+  ]
+};
+
+function updateClientNodes(count) {
+  clientLaptops.forEach(l => {
+    scene.remove(l);
+    l.traverse(c => {
+      const idx = interactiveObjects.indexOf(c);
+      if (idx !== -1) interactiveObjects.splice(idx, 1);
+    });
+  });
+  clientLaptops = [];
+
+  // Remove previous client buses and packets
+  const clientBusesToRemove = circuitBuses.filter(b => b.id.startsWith('bus-client')).map(b => b.id);
+  clientBusesToRemove.forEach(id => {
+    removePacketsForBus(id);
+    removeCircuitBus(id);
+  });
+
+  if (clientJunctionMesh) {
+    scene.remove(clientJunctionMesh);
+    if (clientJunctionMesh.geometry) clientJunctionMesh.geometry.dispose();
+    if (clientJunctionMesh.material) clientJunctionMesh.material.dispose();
+    clientJunctionMesh = null;
+  }
+
+  const coords = clientLayouts[count] || clientLayouts[1];
+  coords.forEach((pos) => {
+    const laptop = createDetailedMacbook(pos.x, pos.z, 'h1');
+    clientLaptops.push(laptop);
+  });
+
+  // Dynamic tree branch connection structure to switch
+  const CONVERGE = new THREE.Vector3(-4.2, 0.32, 0.8);
+  const SWITCH_ENTRY = new THREE.Vector3(-2.4, 0.32, 0.8);
+
+  if (coords.length === 1) {
+    const p0 = new THREE.Vector3(coords[0].x + 2.0, 0.32, coords[0].z);
+    const pMid = new THREE.Vector3(-3.8, 0.32, 0.9);
+    const bus = createCircuitBus([p0, pMid, SWITCH_ENTRY], PALETTE.teal, 'bus-client-trunk');
+    addPacketsToBus(bus, 2);
+  } else {
+    // Branch from each client laptop pad to convergence junction
+    // Using corridor waypoint at x = -5.0 to guarantee wires never cross any laptop
+    coords.forEach((pos, idx) => {
+      const padEdge = new THREE.Vector3(pos.x + 2.0, 0.32, pos.z);
+      const corridorX = -5.0;
+      const branchPoints = [
+        padEdge,
+        new THREE.Vector3(corridorX, 0.32, pos.z),
+        CONVERGE.clone()
+      ];
+      const branchBus = createCircuitBus(branchPoints, PALETTE.teal, 'bus-client-branch-' + idx);
+      addPacketsToBus(branchBus, 2);
+    });
+
+    // Main trunk line from junction into switch
+    const trunkBus = createCircuitBus([
+      CONVERGE.clone(),
+      new THREE.Vector3(-3.2, 0.32, 0.8),
+      SWITCH_ENTRY
+    ], PALETTE.teal, 'bus-client-trunk');
+    addPacketsToBus(trunkBus, 3);
+
+    // Tree convergence junction coupler disc
+    const juncGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.16, 24);
+    const juncMat = new THREE.MeshStandardMaterial({
+      color: PALETTE.teal,
+      emissive: PALETTE.teal,
+      emissiveIntensity: 0.65,
+      roughness: 0.25,
+      metalness: 0.5
+    });
+    clientJunctionMesh = new THREE.Mesh(juncGeo, juncMat);
+    clientJunctionMesh.position.set(CONVERGE.x, 0.32, CONVERGE.z);
+    scene.add(clientJunctionMesh);
+  }
+
+  const disp = document.getElementById('client-count-display');
+  if (disp) disp.textContent = count;
+
+  if (typeof deviceRegistry !== 'undefined' && deviceRegistry && deviceRegistry.h1) {
+    deviceRegistry.h1.conns = 12 * count;
+  }
+}
+
+function adjustClients(delta) {
+  const next = Math.max(1, Math.min(MAX_CLIENTS, currentClientCount + delta));
+  if (next !== currentClientCount) {
+    currentClientCount = next;
+    updateClientNodes(currentClientCount);
+    updateClientTelemetry();
+  }
+}
+
+function setMaxClients() {
+  if (currentClientCount !== MAX_CLIENTS) {
+    currentClientCount = MAX_CLIENTS;
+    updateClientNodes(currentClientCount);
+    updateClientTelemetry();
+  }
+}
+
+function updateClientTelemetry() {
+  const baseTput = 527.9;
+  const factor = Math.sqrt(currentClientCount);
+  const tputEl = document.getElementById('val-tput');
+  if (tputEl) tputEl.textContent = (baseTput * factor).toFixed(1) + ' req/s';
+  const flowEl = document.getElementById('val-flows');
+  if (flowEl) flowEl.textContent = (12 * currentClientCount);
+  refreshHoverCard();
+}
+
+
+
+// ══════════════════════════════════════════════════════════════
+//  4. 3-TIER SERVER RACK (CLEAN: NO FLOATING HANDLES OR BLOAT!)
+// ══════════════════════════════════════════════════════════════
+function createDetailedServerRack(x, z, serverId, serverName) {
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
+
+  const pedestal = createPedestal(3.2, 3.2, 0.25, 'rect');
+  group.add(pedestal);
+
+  // Stylized Drop Shadow
+  const isoShadowGeo = new THREE.PlaneGeometry(2.4, 2.4);
+  isoShadowGeo.rotateX(-Math.PI / 2);
+  isoShadowGeo.rotateY(Math.PI / 4);
+  const isoShadowMat = new THREE.MeshBasicMaterial({ color: 0x3D5060, transparent: true, opacity: 0.3 });
+  const isoShadow = new THREE.Mesh(isoShadowGeo, isoShadowMat);
+  isoShadow.position.set(0, 0.26, 0);
+  group.add(isoShadow);
+
+  const matChassis = new THREE.MeshStandardMaterial({
+    color: PALETTE.serverChassis,
+    roughness: 0.3,
+    metalness: 0.3,
+  });
+
+  const matTopPanel = new THREE.MeshStandardMaterial({
+    color: PALETTE.serverTop,
+    roughness: 0.35,
+    metalness: 0.25,
+  });
+
+  const leds = [];
+
+  // 3 Stacked Modular Tiers
+  for (let tier = 0; tier < 3; tier++) {
+    const tierGeo = createRoundedBoxGeometry(2.0, 0.65, 2.0, 0.18);
+    const tierMesh = new THREE.Mesh(tierGeo, tier === 2 ? matTopPanel : matChassis);
+    tierMesh.position.set(0, 0.65 + tier * 0.72, 0);
+    tierMesh.castShadow = true;
+    tierMesh.receiveShadow = true;
+    group.add(tierMesh);
+
+    // Front horizontal recessed drive slot
+    const grooveGeo = new THREE.BoxGeometry(1.3, 0.08, 0.08);
+    const grooveMat = new THREE.MeshStandardMaterial({ color: 0x0C141C, roughness: 0.7 });
+    const groove = new THREE.Mesh(grooveGeo, grooveMat);
+    groove.position.set(-0.18, 0.65 + tier * 0.72, 1.04);
+    group.add(groove);
+
+    // Front status indicator LEDs
+    const ledColors = [PALETTE.green, PALETTE.amber, PALETTE.red];
+    for (let l = 0; l < 3; l++) {
+      const bezelGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.02, 16);
+      bezelGeo.rotateX(Math.PI / 2);
+      const bezelMat = new THREE.MeshStandardMaterial({ color: 0x11161D, roughness: 0.4 });
+      const bezelMesh = new THREE.Mesh(bezelGeo, bezelMat);
+      bezelMesh.position.set(0.66 + l * 0.12, 0.65 + tier * 0.72, 1.04);
+      group.add(bezelMesh);
+
+      const ledGeo = new THREE.SphereGeometry(0.04, 12, 12);
+      const ledMat = new THREE.MeshBasicMaterial({ color: ledColors[l] });
+      const ledMesh = new THREE.Mesh(ledGeo, ledMat);
+      ledMesh.position.set(0.66 + l * 0.12, 0.65 + tier * 0.72, 1.05);
+      group.add(ledMesh);
+      leds.push({ mesh: ledMesh, color: ledColors[l], tier: tier });
+    }
+  }
+
+  // Top Sunken Recess flush directly on top tier surface
+  const recessGeo = new THREE.BoxGeometry(0.95, 0.03, 0.95);
+  const recessMat = new THREE.MeshStandardMaterial({ color: 0x121B24, roughness: 0.6 });
+  const recess = new THREE.Mesh(recessGeo, recessMat);
+  recess.position.set(0, 2.425, 0);
+  group.add(recess);
+
+  // Center Diamond Indicator on Top
+  const diamondGeo = new THREE.BoxGeometry(0.16, 0.04, 0.16);
+  diamondGeo.rotateY(Math.PI / 4);
+  const diamondMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.amber,
+    emissive: PALETTE.amber,
+    emissiveIntensity: 0.85,
+  });
+  const diamond = new THREE.Mesh(diamondGeo, diamondMat);
+  diamond.position.set(0, 2.445, 0);
+  group.add(diamond);
+
+  group.userData = {
+    id: serverId,
+    name: serverName,
+    topMat: matTopPanel,
+    chassisMat: matChassis,
+    diamondMat: diamondMat,
+    leds: leds,
+  };
+
+  interactiveObjects.push(group);
+  scene.add(group);
+  return group;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  5. CYLINDRICAL DATABASE NODE (SERVER h4)
+// ══════════════════════════════════════════════════════════════
+function createDetailedDatabase(x, z, serverId, serverName) {
+  const group = new THREE.Group();
+  group.position.set(x, 0, z);
+
+  const pedestal = createPedestal(3.2, 3.2, 0.25, 'circle');
+  group.add(pedestal);
+
+  const cylGeo = new THREE.CylinderGeometry(1.1, 1.1, 2.2, 36);
+  const cylMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.serverChassis,
+    roughness: 0.3,
+    metalness: 0.3,
+  });
+  const cylinder = new THREE.Mesh(cylGeo, cylMat);
+  cylinder.position.set(0, 1.35, 0);
+  cylinder.castShadow = true;
+  cylinder.receiveShadow = true;
+  group.add(cylinder);
+
+  // Cooling Rib Rings
+  for (let r = 0; r < 3; r++) {
+    const ringGeo = new THREE.TorusGeometry(1.13, 0.03, 16, 36);
+    ringGeo.rotateX(Math.PI / 2);
+    const ringMat = new THREE.MeshStandardMaterial({ color: PALETTE.teal, roughness: 0.4, metalness: 0.6 });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.set(0, 0.65 + r * 0.7, 0);
+    group.add(ring);
+  }
+
+  // Top Recessed Optical Core
+  const topRecessGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.1, 32);
+  const topRecessMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.teal,
+    emissive: PALETTE.teal,
+    emissiveIntensity: 0.7,
+    roughness: 0.2,
+  });
+  const topRecess = new THREE.Mesh(topRecessGeo, topRecessMat);
+  topRecess.position.set(0, 2.42, 0);
+  group.add(topRecess);
+
+  // Vertical LED Data Meter Strip
+  const stripGeo = new THREE.BoxGeometry(0.08, 1.4, 0.1);
+  const stripMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.teal,
+    emissive: PALETTE.teal,
+    emissiveIntensity: 0.6,
+  });
+  const strip = new THREE.Mesh(stripGeo, stripMat);
+  strip.position.set(0, 1.35, 1.08);
+  group.add(strip);
+
+  group.userData = {
+    id: serverId,
+    name: serverName,
+    topMat: topRecessMat,
+    chassisMat: cylMat,
+    stripMat: stripMat,
+  };
+
+  interactiveObjects.push(group);
+  scene.add(group);
+  return group;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  6. CIRCUIT BUSES & DATA PACKETS (THEME TEAL WIRES & SPHERES)
+// ══════════════════════════════════════════════════════════════
+const circuitBuses = [];
+const packetGeo = new THREE.SphereGeometry(0.22, 16, 16);
+const dataPackets = [];
+let clientJunctionMesh = null;
+
+function createCircuitBus(points, colorHex, id) {
+  const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.2);
+  const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.13, 16, false);
+  const tubeMat = new THREE.MeshStandardMaterial({
+    color: colorHex,
+    emissive: colorHex,
+    emissiveIntensity: 0.28,
+    roughness: 0.35,
+    metalness: 0.25,
+    transparent: true,
+    opacity: 0.95,
+  });
+  const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+  tubeMesh.castShadow = true;
+  scene.add(tubeMesh);
+
+  const busObj = {
+    id: id,
+    curve: curve,
+    mesh: tubeMesh,
+    baseColor: colorHex,
+    active: true,
+  };
+  circuitBuses.push(busObj);
+  return busObj;
+}
+
+function removeCircuitBus(id) {
+  const idx = circuitBuses.findIndex(b => b.id === id);
+  if (idx !== -1) {
+    const b = circuitBuses[idx];
+    scene.remove(b.mesh);
+    if (b.mesh.geometry) b.mesh.geometry.dispose();
+    if (b.mesh.material) b.mesh.material.dispose();
+    circuitBuses.splice(idx, 1);
+  }
+}
+
+function removePacketsForBus(id) {
+  for (let i = dataPackets.length - 1; i >= 0; i--) {
+    if (dataPackets[i].bus.id === id) {
+      scene.remove(dataPackets[i].mesh);
+      if (dataPackets[i].mesh.geometry) dataPackets[i].mesh.geometry.dispose();
+      if (dataPackets[i].mat) dataPackets[i].mat.dispose();
+      dataPackets.splice(i, 1);
+    }
+  }
+}
+
+function addPacketsToBus(bus, count = 2) {
+  for (let i = 0; i < count; i++) {
+    const pMat = new THREE.MeshStandardMaterial({
+      color: PALETTE.iceBlue,
+      emissive: PALETTE.teal,
+      emissiveIntensity: 0.95,
+      roughness: 0.2,
+      metalness: 0.1,
+    });
+    const pMesh = new THREE.Mesh(packetGeo, pMat);
+    scene.add(pMesh);
+    dataPackets.push({
+      bus: bus,
+      progress: i / count,
+      speed: 0.007,
+      mesh: pMesh,
+      mat: pMat,
+    });
+  }
+}
+
+// Instantiate Models
+const cloudNode = createCloudController();
+const switchNode = createSwitch();
+
+const serverH2 = createDetailedServerRack(7.5, -4.0, 'h2', 'Server Rack h2');
+const serverH3 = createDetailedServerRack(7.8, 0.8, 'h3', 'Server Rack h3');
+const serverH4 = createDetailedDatabase(7.5, 5.6, 'h4', 'Database Node h4');
+
+// Ground Circuit Buses for Servers
+createCircuitBus([
+  new THREE.Vector3(2.4, 0.32, 0.6),
+  new THREE.Vector3(4.5, 0.32, -1.8),
+  new THREE.Vector3(6.0, 0.32, -3.8),
+], PALETTE.teal, 'bus-switch-h2');
+
+createCircuitBus([
+  new THREE.Vector3(2.4, 0.32, 1.0),
+  new THREE.Vector3(4.8, 0.32, 1.0),
+  new THREE.Vector3(6.2, 0.32, 0.9),
+], PALETTE.teal, 'bus-switch-h3');
+
+createCircuitBus([
+  new THREE.Vector3(2.4, 0.32, 1.4),
+  new THREE.Vector3(4.5, 0.32, 3.8),
+  new THREE.Vector3(6.0, 0.32, 5.4),
+], PALETTE.teal, 'bus-switch-h4');
+
+// Vertical cables dropping from Cloud
+createCircuitBus([
+  new THREE.Vector3(0, 5.8, -6.5),
+  new THREE.Vector3(0, 3.2, -5.0),
+  new THREE.Vector3(0, 0.5, -2.4),
+  new THREE.Vector3(0, 0.35, -0.6),
+], PALETTE.teal, 'bus-cloud-switch');
+
+// Initial packets for server and cloud buses
+circuitBuses.forEach(bus => {
+  addPacketsToBus(bus, 2);
+});
+
+// Initialize client nodes and dynamic branch pipes
+updateClientNodes(1);
+
+
+
+// ══════════════════════════════════════════════════════════════
+//  SCENARIO-ACCURATE REAL-TIME TELEMETRY REGISTRY
+// ══════════════════════════════════════════════════════════════
+
+function setPacketTraffic(busId, active, speed = 0.007, colorHex = PALETTE.iceBlue, emissiveHex = PALETTE.teal) {
+  const bus = circuitBuses.find(b => b.id === busId);
+  if (bus) bus.active = active;
+  dataPackets.filter(p => p.bus.id === busId).forEach(p => {
+    p.speed = speed;
+    p.mat.color.setHex(colorHex);
+    p.mat.emissive.setHex(emissiveHex);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SCENARIOS CONTROLLER (ALL 6 COLLEGE SCENARIOS)
+// ══════════════════════════════════════════════════════════════
+const scenarios = [
+  {
+    id: 1,
+    name: 'Normal Operation',
+    apply() {
+      setServerStatus(serverH2, PALETTE.serverTop, 'healthy');
+      setServerStatus(serverH3, PALETTE.serverTop, 'healthy');
+      setServerStatus(serverH4, PALETTE.teal, 'healthy');
+      circuitBuses.forEach(b => b.active = true);
+      dataPackets.forEach(p => {
+        p.speed = 0.007;
+        p.mat.color.setHex(PALETTE.iceBlue);
+        p.mat.emissive.setHex(PALETTE.teal);
+      });
+      updateTopMetrics('527.9 req/s', '20.5 ms', '34.1 ms');
+    }
+  },
+  {
+    id: 2,
+    name: 'h2 Slowdown (200ms)',
+    apply() {
+      setServerStatus(serverH2, PALETTE.amber, 'degraded');
+      setServerStatus(serverH3, PALETTE.serverTop, 'healthy');
+      setServerStatus(serverH4, PALETTE.teal, 'healthy');
+      setPacketTraffic('bus-switch-h2', true, 0.0025, PALETTE.amber, PALETTE.amber); // Crawling sluggish packets
+      setPacketTraffic('bus-switch-h3', true, 0.008, PALETTE.iceBlue, PALETTE.teal);
+      setPacketTraffic('bus-switch-h4', true, 0.008, PALETTE.iceBlue, PALETTE.teal);
+      updateTopMetrics('395.2 req/s', '26.9 ms', '42.5 ms');
+    }
+  },
+  {
+    id: 3,
+    name: 'h3 Crashed',
+    apply() {
+      setServerStatus(serverH2, PALETTE.serverTop, 'healthy');
+      setServerStatus(serverH3, PALETTE.red, 'dead');
+      setServerStatus(serverH4, PALETTE.teal, 'healthy');
+      setPacketTraffic('bus-switch-h3', false); // Severed connection
+      setPacketTraffic('bus-switch-h2', true, 0.0085, PALETTE.iceBlue, PALETTE.teal);
+      setPacketTraffic('bus-switch-h4', true, 0.0085, PALETTE.iceBlue, PALETTE.teal);
+      updateTopMetrics('310.4 req/s', '27.4 ms', '41.9 ms');
+    }
+  },
+  {
+    id: 4,
+    name: 'h3 Recovery & Cooldown',
+    apply() {
+      setServerStatus(serverH2, PALETTE.serverTop, 'healthy');
+      setServerStatus(serverH3, PALETTE.moss, 'warming');
+      setServerStatus(serverH4, PALETTE.teal, 'healthy');
+      circuitBuses.forEach(b => b.active = true);
+      setPacketTraffic('bus-switch-h3', true, 0.0045, PALETTE.moss, PALETTE.moss); // Warming gradual pace
+      setPacketTraffic('bus-switch-h2', true, 0.007, PALETTE.iceBlue, PALETTE.teal);
+      setPacketTraffic('bus-switch-h4', true, 0.007, PALETTE.iceBlue, PALETTE.teal);
+      updateTopMetrics('445.8 req/s', '23.8 ms', '35.8 ms');
+    }
+  },
+  {
+    id: 5,
+    name: 'Benchmark: Adaptive vs Round-Robin',
+    apply() {
+      setServerStatus(serverH2, PALETTE.serverTop, 'healthy');
+      setServerStatus(serverH3, PALETTE.serverTop, 'healthy');
+      setServerStatus(serverH4, PALETTE.teal, 'healthy');
+      circuitBuses.forEach(b => b.active = true);
+      dataPackets.forEach(p => {
+        p.speed = 0.0075;
+        p.mat.color.setHex(PALETTE.iceBlue);
+        p.mat.emissive.setHex(PALETTE.teal);
+      });
+      updateTopMetrics('527.9 req/s', '20.4 ms', '34.1 ms');
+    }
+  },
+  {
+    id: 6,
+    name: 'Hard Scenario: Overload h2 + Kill h3 Mid-Run',
+    apply() {
+      setServerStatus(serverH2, PALETTE.amber, 'degraded');
+      setServerStatus(serverH3, PALETTE.red, 'dead');
+      setServerStatus(serverH4, PALETTE.teal, 'overload-carry');
+      setPacketTraffic('bus-switch-h2', true, 0.002, PALETTE.amber, PALETTE.amber); // Strangled degraded stream
+      setPacketTraffic('bus-switch-h3', false); // Severed completely
+      setPacketTraffic('bus-switch-h4', true, 0.0135, PALETTE.iceBlue, PALETTE.teal); // High speed burst stream!
+      updateTopMetrics('111.8 req/s', '68.5 ms', '257.7 ms');
+    }
+  }
+];
+
+function setServerStatus(node, colorHex, status) {
+  if (node.userData.topMat) {
+    node.userData.topMat.color.setHex(colorHex);
+  }
+  if (node.userData.diamondMat) {
+    node.userData.diamondMat.color.setHex(colorHex);
+    node.userData.diamondMat.emissive.setHex(colorHex);
+  }
+  if (node.userData.stripMat) {
+    node.userData.stripMat.color.setHex(colorHex);
+    node.userData.stripMat.emissive.setHex(colorHex);
+  }
+}
+
+function updateTopMetrics(tput, lat, p95) {
+  const factor = Math.sqrt(currentClientCount);
+  const baseTputNum = parseFloat(tput);
+  const tputEl = document.getElementById('val-tput');
+  if (tputEl) {
+    tputEl.textContent = !isNaN(baseTputNum) ? (baseTputNum * factor).toFixed(1) + ' req/s' : tput;
+  }
+  const latEl = document.getElementById('val-lat');
+  if (latEl) latEl.textContent = lat;
+  const p95El = document.getElementById('val-p95');
+  if (p95El) p95El.textContent = p95;
+  const flowEl = document.getElementById('val-flows');
+  if (flowEl) flowEl.textContent = (12 * currentClientCount);
+}
+
+let activeScenario = 1;
+let autoCycle = true;
+let currentHoveredId = null;
+
+const scenarioLogs = {
+  1: '[OF1.3 Balanced] TCP flows dispatched proportionally across h2, h3, h4 (EMA costs: 0.24, 0.18, 0.21)',
+  2: '[Telemetry Degraded] h2 latency +200ms -> Adaptive weight penalizes h2 -> 92% of new TCP handshakes routed to h3 & h4',
+  3: '[OF1.3 Failover] h3 health probe dropped -> Controller evicts port 3 rules -> 100% traffic rerouted to h2 & h4',
+  4: '[Warm Recovery] h3 probe restored (19.8ms) -> Controller starts gradual re-warming (15% -> 40% -> 75% rate)',
+  5: '[Benchmark Study] Adaptive (EMA latency) vs Static Round-Robin: Adaptive achieves 34.1ms P95 (-42% latency)',
+  6: '[Emergency Overload] h2 degraded + h3 killed -> Controller executes dynamic bypass -> h4 carrying 100% load'
+};
+
+function switchScenario(id) {
+  activeScenario = id;
+  document.querySelectorAll('.dock-btn').forEach((b, i) => {
+    if (i < 6) b.classList.toggle('active', i === id - 1);
+  });
+  if (scenarioTelemetry[id]) {
+    Object.assign(deviceRegistry, JSON.parse(JSON.stringify(scenarioTelemetry[id])));
+  }
+  const logEl = document.getElementById('sdn-log-text');
+  if (logEl) logEl.textContent = scenarioLogs[id] || '';
+  scenarios[id - 1].apply();
+  refreshHoverCard();
+}
+
+function toggleAuto() {
+  autoCycle = !autoCycle;
+  const btn = document.getElementById('btn-auto');
+  if (btn) {
+    btn.classList.toggle('running', autoCycle);
+    const iconPlay = '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+    const iconPause = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    btn.innerHTML = (autoCycle ? iconPause : iconPlay) + (autoCycle ? ' Pause' : ' Auto');
+  }
+}
+
+setInterval(() => {
+  if (autoCycle) {
+    const next = activeScenario === 6 ? 1 : activeScenario + 1;
+    switchScenario(next);
+  }
+}, 6000);
+
+// ══════════════════════════════════════════════════════════════
+//  THEME TOGGLE
+// ══════════════════════════════════════════════════════════════
+function toggleTheme() {
+  const html = document.documentElement;
+  const isLight = html.getAttribute('data-theme') === 'light';
+  const newTheme = isLight ? 'dark' : 'light';
+  html.setAttribute('data-theme', newTheme);
+  
+  const iconSun = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+  const iconMoon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  
+  const iconEl = document.getElementById('theme-icon');
+  const lblEl = document.getElementById('theme-lbl');
+  if (iconEl) iconEl.innerHTML = (newTheme === 'dark' ? iconSun : iconMoon);
+  if (lblEl) lblEl.textContent = (newTheme === 'dark' ? 'Light' : 'Dark');
+
+  scene.remove(gridHelper);
+  gridHelper.geometry.dispose();
+
+  if (newTheme === 'light') {
+    renderer.setClearColor(PALETTE.sand, 0);
+    ambientLight.color.setHex(0xffffff);
+    ambientLight.intensity = 0.95;
+    dirLight.color.setHex(0xfffaee);
+    dirLight.intensity = 1.35;
+    groundShadow.material.opacity = 0.20;
+    gridHelper = new THREE.GridHelper(54, 54, PALETTE.teal, 0x8CA0A0);
+    gridHelper.position.y = 0.02;
+    gridHelper.material.opacity = 0.16;
+    gridHelper.material.transparent = true;
+
+    if (serverH2 && serverH2.userData.chassisMat) serverH2.userData.chassisMat.color.setHex(PALETTE.serverChassis);
+    if (serverH3 && serverH3.userData.chassisMat) serverH3.userData.chassisMat.color.setHex(PALETTE.serverChassis);
+    if (serverH4 && serverH4.userData.chassisMat) serverH4.userData.chassisMat.color.setHex(PALETTE.serverChassis);
+
+    themeMaterials.forEach(item => {
+      item.mat.color.setHex(item.light);
+    });
+    clientLaptops.forEach(l => {
+      if (l.userData && l.userData.matLaptop) l.userData.matLaptop.color.setHex(PALETTE.laptopColor);
+    });
+  } else {
+    renderer.setClearColor(PALETTE.darkBg, 0);
+    ambientLight.color.setHex(0xDDDDDD);
+    ambientLight.intensity = 0.70;
+    dirLight.color.setHex(0xF2F2F2);
+    dirLight.intensity = 1.25;
+    groundShadow.material.opacity = 0.35;
+    gridHelper = new THREE.GridHelper(54, 54, PALETTE.teal, 0x2E2E2E);
+    gridHelper.position.y = 0.02;
+    gridHelper.material.opacity = 0.30;
+    gridHelper.material.transparent = true;
+
+    if (serverH2 && serverH2.userData.chassisMat) serverH2.userData.chassisMat.color.setHex(0x2C3B49);
+    if (serverH3 && serverH3.userData.chassisMat) serverH3.userData.chassisMat.color.setHex(0x2C3B49);
+    if (serverH4 && serverH4.userData.chassisMat) serverH4.userData.chassisMat.color.setHex(0x2C3B49);
+
+    themeMaterials.forEach(item => {
+      item.mat.color.setHex(item.dark);
+    });
+    clientLaptops.forEach(l => {
+      if (l.userData && l.userData.matLaptop) l.userData.matLaptop.color.setHex(0x737678);
+    });
+  }
+  scene.add(gridHelper);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RAYCASTER HOVER INSPECT (DYNAMIC SCENARIO DATA)
+// ══════════════════════════════════════════════════════════════
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const hoverCard = document.getElementById('hover-card');
+
+const mininetPorts = {
+  h1: 's1-eth1',
+  h2: 's1-eth2',
+  h3: 's1-eth3',
+  h4: 's1-eth4',
+  s1: 'OpenFlow1.3 (0x1)',
+  ctrl: 'tcp:6653'
+};
+
+function renderHoverData(targetId) {
+  if (targetId && deviceRegistry[targetId]) {
+    const d = deviceRegistry[targetId];
+    const titleEl = document.getElementById('dev-title');
+    if (titleEl) titleEl.textContent = d.name;
+    const ipEl = document.getElementById('dev-ip');
+    if (ipEl) ipEl.textContent = d.ip;
+    const portEl = document.getElementById('dev-port');
+    if (portEl) portEl.textContent = mininetPorts[targetId] || 'eth0';
+    const latEl = document.getElementById('dev-lat');
+    if (latEl) latEl.textContent = d.lat;
+    const connsEl = document.getElementById('dev-conns');
+    if (connsEl) connsEl.textContent = d.conns;
+    const scoreEl = document.getElementById('dev-score');
+    if (scoreEl) scoreEl.textContent = d.score;
+
+    const statusBadge = document.getElementById('dev-status');
+    if (statusBadge) {
+      statusBadge.textContent = d.status;
+      statusBadge.className = 'card-status';
+      if (d.status === 'DEGRADED') statusBadge.classList.add('degraded');
+      else if (d.status === 'DEAD') statusBadge.classList.add('dead');
+      else if (d.status === 'WARMING') statusBadge.classList.add('warming');
+      else if (d.status === 'OVERLOAD') statusBadge.classList.add('overloaded');
+    }
+    return true;
+  }
+  return false;
+}
+
+
+function refreshHoverCard() {
+  if (currentHoveredId && hoverCard && hoverCard.style.display === 'block') {
+    renderHoverData(currentHoveredId);
+  }
+}
+
+window.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(scene.children, true);
+
+  let targetId = null;
+  for (const hit of intersects) {
+    let p = hit.object;
+    while (p && !p.userData?.id && p.parent) p = p.parent;
+    if (p && p.userData?.id) {
+      targetId = p.userData.id;
+      break;
+    }
+  }
+
+  currentHoveredId = targetId;
+
+  if (targetId && renderHoverData(targetId)) {
+    const cardWidth = 230;
+    const cardHeight = 160;
+    let left = e.clientX + 16;
+    let top = e.clientY - 10;
+    if (left + cardWidth > window.innerWidth) {
+      left = e.clientX - cardWidth - 16;
+    }
+    if (top + cardHeight > window.innerHeight) {
+      top = window.innerHeight - cardHeight - 16;
+    }
+    if (top < 16) top = 16;
+    hoverCard.style.left = left + 'px';
+    hoverCard.style.top = top + 'px';
+    hoverCard.style.display = 'block';
+  } else {
+    hoverCard.style.display = 'none';
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER LOOP (WITH DIRECTIONAL SPHERE PACKET STREAM & FIBER FLOW)
+// ══════════════════════════════════════════════════════════════
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const time = clock.getElapsedTime();
+
+  // Gentle float for Cloud Gateway
+  if (switchPulseRing) {
+    switchPulseRing.material.opacity = 0.14 + Math.sin(time * 4) * 0.08;
+  }
+  cloudNode.position.y = 7.2 + Math.sin(time * 1.5) * 0.14;
+
+  // Real-Time Open vSwitch s1 Port Activity Indicators
+  if (switchNode && switchNode.userData && switchNode.userData.portLeds) {
+    const leds = switchNode.userData.portLeds;
+    // Port 0 (Client ingress s1-eth1): constant active pulsing
+    if (leds[0]) leds[0].material.opacity = (Math.sin(time * 12) > -0.2) ? 1.0 : 0.3;
+    // Port 1 (Backend s1-eth2 / h2): sluggish when degraded in scenario 2
+    if (leds[1]) {
+      const freq = activeScenario === 2 ? 3 : 10;
+      leds[1].material.opacity = (Math.sin(time * freq) > -0.2) ? 1.0 : 0.25;
+    }
+    // Port 2 (Backend s1-eth3 / h3): OFF in 3 & 6 (dead), warming pulse in 4, active otherwise
+    if (leds[2]) {
+      if (activeScenario === 3 || activeScenario === 6) {
+        leds[2].material.opacity = 0.08;
+      } else if (activeScenario === 4) {
+        leds[2].material.opacity = (Math.sin(time * 5) > 0) ? 0.9 : 0.2;
+      } else {
+        leds[2].material.opacity = (Math.sin(time * 9) > -0.2) ? 1.0 : 0.3;
+      }
+    }
+    // Port 3 (Backend s1-eth4 / h4): high frequency strobe during scenario 6 overload
+    if (leds[3]) {
+      const freq = activeScenario === 6 ? 18 : 9;
+      leds[3].material.opacity = (Math.sin(time * freq) > -0.2) ? 1.0 : 0.3;
+    }
+  }
+
+  // LED blinks on Server Racks
+  if (serverH2.userData.leds) {
+    serverH2.userData.leds.forEach((l, idx) => {
+      l.mesh.material.opacity = (Math.sin(time * 8 + idx) > -0.2) ? 1.0 : 0.25;
+    });
+  }
+  if (serverH3.userData.leds) {
+    serverH3.userData.leds.forEach((l, idx) => {
+      l.mesh.material.opacity = (Math.sin(time * 7 + idx) > -0.2) ? 1.0 : 0.25;
+    });
+  }
+
+  // Animate 3D Spherical Data Packets along Circuit Curves
+  dataPackets.forEach(p => {
+    if (!p.bus.active) {
+      p.mesh.visible = false;
+      return;
+    }
+    p.mesh.visible = true;
+    p.progress = (p.progress + p.speed) % 1.0;
+    p.mesh.position.copy(p.bus.curve.getPointAt(p.progress));
+
+    // Dynamic optical heartbeat pulse
+    const pulseGlow = 0.85 + Math.sin(time * 8 + p.progress * 12) * 0.35;
+    p.mat.emissiveIntensity = pulseGlow;
+  });
+
+  // Fiber Circuit Tube Dynamic Optical Wave Flow (Theme Teal)
+  circuitBuses.forEach((b, idx) => {
+    if (b.active) {
+      b.mesh.material.opacity = 0.95;
+      b.mesh.material.emissiveIntensity = 0.28 + Math.sin(time * 3.2 + idx * 1.5) * 0.12;
+    } else {
+      b.mesh.material.opacity = 0.22;
+      b.mesh.material.emissiveIntensity = 0.04;
+    }
+  });
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+switchScenario(1);
+animate();
+</script>
+</body>
+</html>
