@@ -1,0 +1,78 @@
+{
+  "scenario1": {
+    "scenario": "Scenario 1: Normal Traffic",
+    "total_requests": 60,
+    "successful_requests": 60,
+    "failed_requests": 0,
+    "avg_latency_ms": 32.11,
+    "p95_latency_ms": 46.36,
+    "distribution": {
+      "h2": 15,
+      "h3": 43,
+      "h4": 2
+    }
+  },
+  "scenario2": {
+    "scenario": "Scenario 2: Backend Slowdown",
+    "slowed_server": "h2",
+    "total_requests": 60,
+    "successful_requests": 60,
+    "failed_requests": 0,
+    "avg_latency_ms": 126.42,
+    "h2_share_pct": 50.0,
+    "distribution": {
+      "h4": 30,
+      "h2": 30
+    }
+  },
+  "scenario3": {
+    "scenario": "Scenario 3: Backend Failure",
+    "failed_server": "h3",
+    "total_requests": 50,
+    "successful_requests": 50,
+    "failed_requests": 0,
+    "h3_traffic_count": 0,
+    "distribution": {
+      "h4": 50
+    }
+  },
+  "scenario4": {
+    "scenario": "Scenario 4: Backend Recovery",
+    "recovered_server": "h3",
+    "final_status": "HEALTHY",
+    "post_recovery_distribution": {
+      "h3": 60
+    }
+  },
+  "scenario5": {
+    "round_robin": {
+      "throughput_rps": 114.41,
+      "avg_latency_ms": 89.62,
+      "p95_latency_ms": 204.86,
+      "distribution": {
+        "h2": 33,
+        "h3": 34,
+        "h4": 33
+      }
+    },
+    "adaptive": {
+      "throughput_rps": 437.3,
+      "avg_latency_ms": 23.97,
+      "p95_latency_ms": 37.18,
+      "distribution": {
+        "h2": 100
+      }
+    }
+  },
+  "scenario6": {
+    "success": true,
+    "counts": {
+      "h2": 16,
+      "h3": 74
+    },
+    "throughput_rps": 108.53109910409236,
+    "avg_latency_ms": 70.89561444477619,
+    "p95_latency_ms": 263.83180000266293,
+    "failed_requests": 0
+  }
+}
