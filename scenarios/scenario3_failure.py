@@ -1,12 +1,3 @@
-"""Scenario 3: Backend Failure & Graceful Failover Exclusion.
-
-Demonstrates that when a backend (h3) crashes or becomes completely unavailable:
-1. Telemetry heartbeats fail.
-2. Consecutive failure threshold is reached.
-3. The SDN controller transitions h3 to UNHEALTHY and excludes it from routing.
-4. 100% of incoming connections continue without drops via remaining healthy backends.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -16,53 +7,49 @@ from typing import Optional
 from client.load_generator import LoadGenerator
 from scenarios.testbed import SDNTestbed
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("scenario3")
 
 
 def run_scenario3(testbed: Optional[SDNTestbed] = None) -> dict:
     should_stop = False
     if testbed is None:
-        testbed = SDNTestbed(vip="127.0.0.1", vip_port=8000, mode="adaptive")
+        testbed = SDNTestbed(mode="adaptive")
         testbed.start()
         should_stop = True
 
     try:
-        logger.info("\n" + "=" * 60)
-        logger.info(" SCENARIO 3: BACKEND FAILURE & AUTOMATIC EXCLUSION ")
-        logger.info("=" * 60)
-
-        # Baseline check
+        logger.info("SCENARIO 3: BACKEND FAILURE & AUTOMATIC EXCLUSION")
         time.sleep(1.0)
-        logger.info("Initial Status before failure:")
-        for sid, s in testbed.engine.get_status_summary().items():
-            logger.info(f"  {sid}: Status={s['status']}")
 
-        # Simulate sudden crash of h3
-        logger.info("\n>>> CRASHING BACKEND SERVER h3 (Simulating process death)... <<<")
+        logger.info("Initial status before failure:")
+        for server_id, status in testbed.engine.get_status_summary().items():
+            logger.info("  %s: status=%s", server_id, status["status"])
+
+        logger.info("Crashing backend h3")
         testbed.servers["h3"].stop()
 
-        # Telemetry probe triggers failure detection
-        logger.info("Awaiting health probe failure detection...")
+        logger.info("Awaiting health probe failure detection")
         for _ in range(4):
-            testbed.telemetry.poll_backend("h3", "127.0.0.1", 9003)
-            time.sleep(0.4)
+            testbed.poll_backend("h3")
+            time.sleep(0.3)
 
-        logger.info("\nBackend Status after crash detection:")
-        for sid, s in testbed.engine.get_status_summary().items():
-            logger.info(f"  {sid}: Status={s['status']}, Failures={testbed.engine.backends[sid].consecutive_failures}")
+        logger.info("Backend status after crash detection:")
+        for server_id, status in testbed.engine.get_status_summary().items():
+            backend = testbed.engine.backends[server_id]
+            logger.info(
+                "  %s: status=%s, failures=%s",
+                server_id,
+                status["status"],
+                backend.consecutive_failures,
+            )
 
-        assert testbed.engine.backends["h3"].health_status == "UNHEALTHY", "h3 should be UNHEALTHY"
-        logger.info("SUCCESS: h3 is recognized as UNHEALTHY by SDN controller.")
+        assert testbed.engine.backends["h3"].health_status == "UNHEALTHY"
 
-        # Send traffic load to verify zero traffic routes to crashed h3
-        logger.info("\nGenerating 50 concurrent requests while h3 is down...")
-        generator = LoadGenerator(vip="127.0.0.1", port=8000, concurrency=8)
+        generator = LoadGenerator(vip=testbed.vip, port=testbed.vip_port, concurrency=8)
         result = generator.run_benchmark(num_requests=50)
         result.print_report("SCENARIO 3 RESULT: TRAFFIC ROUTING WHILE h3 IS OFFLINE")
 
-        assert "h3" not in result.server_counts or result.server_counts["h3"] == 0, "No requests should reach h3!"
-        logger.info("CONFIRMED: Exactly 0 requests routed to offline backend h3. Zero service disruption!")
+        assert result.server_counts.get("h3", 0) == 0
 
         summary = {
             "scenario": "Scenario 3: Backend Failure",
@@ -80,4 +67,5 @@ def run_scenario3(testbed: Optional[SDNTestbed] = None) -> dict:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     run_scenario3()

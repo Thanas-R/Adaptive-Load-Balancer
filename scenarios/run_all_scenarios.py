@@ -1,15 +1,3 @@
-"""Master Scenario Runner.
-
-Executes all 5 demonstration scenarios sequentially:
-1. Normal traffic across healthy servers
-2. Backend slowdown and adaptive avoidance
-3. Backend crash and complete exclusion
-4. Backend recovery and probationary reintegration
-5. Comparative benchmark: Adaptive vs. Round-Robin
-
-Generates persistent logs in logs/ directory.
-"""
-
 from __future__ import annotations
 
 import json
@@ -38,69 +26,52 @@ logging.basicConfig(
 logger = logging.getLogger("scenario_runner")
 
 
-def main():
-    logger.info("************************************************************")
-    logger.info("  SDN ADAPTIVE LOAD BALANCER - DEMONSTRATION SCENARIOS TEST ")
-    logger.info("************************************************************")
-
-    # Start a unified testbed for Scenarios 1 - 4
-    testbed = SDNTestbed(vip="127.0.0.1", vip_port=8000, mode="adaptive")
-    testbed.start()
+def main() -> None:
+    logger.info("SDN ADAPTIVE LOAD BALANCER - DEMONSTRATION SCENARIOS TEST")
 
     results = {}
+    testbed = SDNTestbed(mode="adaptive")
+    testbed.start()
     try:
-        # Scenario 1
-        res1 = run_scenario1(testbed)
-        results["scenario1"] = res1
-        time.sleep(1.0)
+        results["scenario1"] = run_scenario1(testbed)
+        time.sleep(0.5)
 
-        # Scenario 2
-        res2 = run_scenario2(testbed)
-        results["scenario2"] = res2
-        time.sleep(1.0)
+        results["scenario2"] = run_scenario2(testbed)
+        time.sleep(0.5)
 
-        # Scenario 3
-        res3 = run_scenario3(testbed)
-        results["scenario3"] = res3
-        time.sleep(1.0)
+        results["scenario3"] = run_scenario3(testbed)
+        time.sleep(0.5)
 
-        # Scenario 4
-        res4 = run_scenario4(testbed)
-        results["scenario4"] = res4
-        time.sleep(1.0)
-
+        results["scenario4"] = run_scenario4(testbed)
+        time.sleep(0.5)
     finally:
         testbed.stop()
 
-    # Scenario 5 (Runs separate testbeds for RR vs Adaptive)
     time.sleep(1.0)
-    rr_res, adapt_res = run_scenario5()
+    rr_result, adaptive_result = run_scenario5()
     results["scenario5"] = {
         "round_robin": {
-            "throughput_rps": round(rr_res.throughput_rps, 2),
-            "avg_latency_ms": round(rr_res.avg_latency_ms, 2),
-            "p95_latency_ms": round(rr_res.p95_latency_ms, 2),
-            "distribution": rr_res.server_counts,
+            "throughput_rps": round(rr_result.throughput_rps, 2),
+            "avg_latency_ms": round(rr_result.avg_latency_ms, 2),
+            "p95_latency_ms": round(rr_result.p95_latency_ms, 2),
+            "distribution": rr_result.server_counts,
         },
         "adaptive": {
-            "throughput_rps": round(adapt_res.throughput_rps, 2),
-            "avg_latency_ms": round(adapt_res.avg_latency_ms, 2),
-            "p95_latency_ms": round(adapt_res.p95_latency_ms, 2),
-            "distribution": adapt_res.server_counts,
+            "throughput_rps": round(adaptive_result.throughput_rps, 2),
+            "avg_latency_ms": round(adaptive_result.avg_latency_ms, 2),
+            "p95_latency_ms": round(adaptive_result.p95_latency_ms, 2),
+            "distribution": adaptive_result.server_counts,
         },
     }
 
-    # Scenario 6: Hard Scenario (Overload + Kill Mid-Run)
     time.sleep(1.0)
-    res6 = run_scenario6()
-    results["scenario6"] = res6
+    results["scenario6"] = run_scenario6()
 
-    # Save results to JSON
-    with open("logs/scenario_results.json", "w") as f:
-        json.dump(results, f, indent=2)
+    with open("logs/scenario_results.json", "w", encoding="utf-8") as handle:
+        json.dump(results, handle, indent=2)
 
-    logger.info("\nALL 6 SCENARIOS COMPLETED SUCCESSFULLY.")
-    logger.info("Detailed logs saved to logs/all_scenarios.log and logs/scenario_results.json")
+    logger.info("ALL 6 SCENARIOS COMPLETED SUCCESSFULLY")
+    logger.info("Logs saved to logs/all_scenarios.log and logs/scenario_results.json")
 
 
 if __name__ == "__main__":

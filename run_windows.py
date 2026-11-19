@@ -1,9 +1,3 @@
-"""Windows Native Interactive Control Center.
-
-Allows running the SDN Adaptive Load Balancer, executing scenarios,
-testing live traffic, and viewing animations directly in Windows Terminal.
-"""
-
 from __future__ import annotations
 
 import os
@@ -16,7 +10,6 @@ from client.load_generator import LoadGenerator
 from scenarios.testbed import SDNTestbed
 from visualization.terminal_animation import play_animation
 
-# Enable ANSI colors on Windows
 os.system("")
 
 C_RESET = "\033[0m"
@@ -27,82 +20,95 @@ C_BLUE = "\033[94m"
 C_CYAN = "\033[96m"
 
 
-def print_banner():
+def print_banner() -> None:
     print(f"\n{C_BLUE}{C_BOLD}{'=' * 72}{C_RESET}")
     print(f"{C_CYAN}{C_BOLD}   SDN-BASED ADAPTIVE LOAD BALANCER - WINDOWS CONTROL CENTER       {C_RESET}")
     print(f"{C_BLUE}{C_BOLD}{'=' * 72}{C_RESET}")
-    print(" 1) Start Live SDN Load Balancer (Listens on 127.0.0.1:8000)")
+    print(" 1) Start Live SDN Load Balancer (auto-selected local port)")
     print(" 2) Run All 6 Demonstration Scenarios (Automated Suite)")
-    print(" 3) Send Concurrent Benchmark Traffic (Load Generator)")
+    print(" 3) Send Benchmark Traffic Through a Temporary Load Balancer")
     print(" 4) Play Terminal Visual Animation in Windows Terminal")
-    print(" 5) Open Interactive HTML5 Animation in Browser (60 FPS)")
+    print(" 5) Open Interactive HTML5 Animation in Browser")
     print(" 6) Re-render Animation GIF (sdn_load_balancer_animation.gif)")
-    print(" 7) Run Unit Tests (12 pytest suites)")
+    print(" 7) Run Unit Tests (pytest)")
     print(" 8) Run Hard Scenario (Overload h2 + Kill h3 Mid-Run)")
     print(" q) Exit")
     print(f"{C_BLUE}{'-' * 72}{C_RESET}")
 
 
-def run_live_load_balancer():
-    print(f"\n{C_GREEN}{C_BOLD}>>> Starting Live SDN Load Balancer on 127.0.0.1:8000 <<< {C_RESET}")
-    print("Backends running: h2 (8002), h3 (8003), h4 (8004)")
-    print("Telemetry active on ports 9002, 9003, 9004")
-    print("Press Ctrl+C to stop the load balancer.\n")
+def run_live_load_balancer() -> None:
+    print(f"\n{C_GREEN}{C_BOLD}>>> Starting live SDN load balancer <<< {C_RESET}")
 
-    testbed = SDNTestbed(vip="127.0.0.1", vip_port=8000, mode="adaptive")
+    testbed = SDNTestbed(mode="adaptive")
     testbed.start()
+    print(f"Virtual service listening on {testbed.vip}:{testbed.vip_port}")
+    for server_id, server in testbed.servers.items():
+        print(
+            f"Backend {server_id}: service {server.ip}:{server.service_port}, "
+            f"telemetry {server.telemetry_ip}:{server.telemetry_port}"
+        )
+    print("Press Ctrl+C to stop.\n")
 
     try:
         while True:
             time.sleep(2.0)
-            summary = testbed.engine.get_status_summary()
-            print(f"[{time.strftime('%H:%M:%S')}] Active Routing Snapshot:")
-            for sid, s in summary.items():
-                print(f"   {sid}: Latency={s['smoothed_latency_ms']}ms | Conns={s['active_connections']} | Score={s['composite_score']} | Flows={s['total_flows_routed']}")
+            print(f"[{time.strftime('%H:%M:%S')}] Routing snapshot:")
+            for server_id, status in testbed.engine.get_status_summary().items():
+                print(
+                    f"   {server_id}: latency={status['smoothed_latency_ms']} ms | "
+                    f"connections={status['active_connections']} | "
+                    f"score={status['composite_score']} | "
+                    f"flows={status['total_flows_routed']}"
+                )
     except KeyboardInterrupt:
-        print("\nStopping SDN Load Balancer...")
+        print("\nStopping load balancer")
     finally:
         testbed.stop()
-        print("SDN Load Balancer stopped cleanly.")
+        print("Load balancer stopped")
 
 
-def run_scenarios():
-    print(f"\n{C_CYAN}Running all 5 demonstration scenarios...{C_RESET}")
+def run_scenarios() -> None:
+    print(f"\n{C_CYAN}Running all 6 demonstration scenarios...{C_RESET}")
     subprocess.run([sys.executable, "-m", "scenarios.run_all_scenarios"])
 
 
-def run_traffic():
-    reqs = input("Enter number of requests (default 60): ").strip()
-    num_reqs = int(reqs) if reqs.isdigit() else 60
-    conns = input("Enter concurrency (default 10): ").strip()
-    num_conns = int(conns) if conns.isdigit() else 10
+def run_traffic() -> None:
+    requests_input = input("Enter number of requests (default 60): ").strip()
+    num_requests = int(requests_input) if requests_input.isdigit() else 60
+    concurrency_input = input("Enter concurrency (default 10): ").strip()
+    concurrency = int(concurrency_input) if concurrency_input.isdigit() else 10
 
-    print(f"\nSending {num_reqs} requests with concurrency {num_conns} to 127.0.0.1:8000...")
-    gen = LoadGenerator(vip="127.0.0.1", port=8000, concurrency=num_conns)
-    res = gen.run_benchmark(num_requests=num_reqs)
-    res.print_report()
+    testbed = SDNTestbed(mode="adaptive")
+    testbed.start()
+    try:
+        print(f"\nSending {num_requests} requests to {testbed.vip}:{testbed.vip_port}")
+        generator = LoadGenerator(vip=testbed.vip, port=testbed.vip_port, concurrency=concurrency)
+        generator.run_benchmark(num_requests=num_requests).print_report()
+    finally:
+        testbed.stop()
 
 
-def open_browser_animation():
+def open_browser_animation() -> None:
     html_path = os.path.abspath(os.path.join("visualization", "animation.html"))
-    print(f"\nOpening {html_path} in default browser...")
+    print(f"\nOpening {html_path} in the default browser...")
     webbrowser.open(f"file:///{html_path}")
 
 
-def render_gif():
+def render_gif() -> None:
     print("\nRendering animation GIF with Pillow...")
     subprocess.run([sys.executable, "-m", "visualization.generate_animation_gif"])
 
 
-def run_tests():
+def run_tests() -> None:
     print("\nRunning unit tests with pytest...")
     subprocess.run([sys.executable, "-m", "pytest", "-v"])
 
 
-def main():
+def main() -> None:
     while True:
         print_banner()
-        choice = input(" Select option [1-7, q]: ").strip()
+        choice = input(" Select option [1-8, q]: ").strip()
+
         if choice == "1":
             run_live_load_balancer()
         elif choice == "2":
@@ -111,7 +117,7 @@ def main():
             run_traffic()
         elif choice == "4":
             play_animation(interactive=False)
-            input(f"\n{C_YELLOW}Animation complete. Press Enter to return to menu...{C_RESET}")
+            input(f"\n{C_YELLOW}Animation complete. Press Enter to return to the menu...{C_RESET}")
         elif choice == "5":
             open_browser_animation()
         elif choice == "6":
@@ -119,7 +125,7 @@ def main():
         elif choice == "7":
             run_tests()
         elif choice == "8":
-            print(f"\n{C_CYAN}Running Scenario 6 (Hard Test: Overload + Kill Mid-Run)...{C_RESET}")
+            print(f"\n{C_CYAN}Running hard scenario...{C_RESET}")
             subprocess.run([sys.executable, "-m", "scenarios.scenario6_hard"])
         elif choice.lower() == "q":
             print("Exiting.")

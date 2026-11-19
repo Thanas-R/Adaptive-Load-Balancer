@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Setup script for Ubuntu Linux (20.04 / 22.04 / 24.04 LTS)
-# Installs Mininet, Open vSwitch, Python dependencies, and system utilities.
-# ==============================================================================
 
 set -e
 
@@ -31,4 +27,4 @@ sudo ovs-vsctl --version
 echo "=== [4/4] Installing Python requirements ==="
 python3 -m pip install -r requirements.txt || true
 
-echo "=== SDN Environment Setup Completed Successfully! ==="
+echo "=== SDN environment setup completed ==="

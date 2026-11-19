@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Launch SDN Controller (Standalone OF 1.3 or Ryu)
-# ==============================================================================
 
 set -e
 
-MODE="${1:-adaptive}" # "adaptive" or "round_robin"
-CONTROLLER_TYPE="${2:-standalone}" # "standalone" or "ryu"
+MODE="${1:-adaptive}"
+CONTROLLER_TYPE="${2:-standalone}"
 
 export PYTHONPATH=".:$PYTHONPATH"
 
@@ -22,7 +19,7 @@ if [ "$CONTROLLER_TYPE" = "ryu" ]; then
         export SDN_CONFIG="config.json"
         exec ryu-manager --ofp-tcp-listen-port 6653 controller/ryu_controller.py
     else
-        echo "WARNING: ryu-manager not found in PATH! Falling back to high-performance Standalone OF13 Controller..."
+        echo "WARNING: ryu-manager not found, using the standalone controller"
         exec python3 -m controller.standalone_controller --mode "$MODE"
     fi
 else

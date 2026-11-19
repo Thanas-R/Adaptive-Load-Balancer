@@ -46,7 +46,7 @@ The data plane uses one `/24` subnet, a single virtual service address, and a de
 | Backend `h4` | Server 3 | `10.0.0.4` | `00:00:00:00:00:04` | `4` | `8000` | `9004` |
 | Controller | Control plane | `127.0.0.1` | N/A | Host TCP | `6653` | Collector loop |
 
-The standalone testbed uses the same design on localhost, with the VIP on `127.0.0.1:8000` and backends on ports `8002` to `8004`.
+The standalone testbed uses the same design on localhost. It prefers the VIP on `127.0.0.1:8000` and backends on ports `8002` to `8004`, and falls back to free local ports when a port is already in use.
 
 ## How it works
 
@@ -87,7 +87,7 @@ The reverse rewrite is what makes the VIP transparent. Without it, the client wo
 
 ## Scoring
 
-Three signals, one score. Each metric is min-max normalized across the eligible backends, then weighted.
+Three signals, one score. Each metric is min-max normalized across the eligible backends, then weighted. The engine also counts flows it has just assigned, so a burst does not stack on one backend before the next telemetry poll. Latency differences under 5 ms are treated as noise.
 
 | Metric | Weight | Why it matters |
 | :--- | :--- | :--- |
@@ -108,7 +108,7 @@ Latency is smoothed with an exponential moving average so a single spike does no
 | State | Trigger | Routing effect |
 | :--- | :--- | :--- |
 | Healthy | Normal telemetry | Fully eligible, no penalty |
-| Degraded | Error rate of 25% or more, or latency of 500 ms or more | Eligible, score penalty `+0.20` |
+| Degraded | Error rate of 25% or more, or latency of 150 ms or more | Eligible, score penalty `+0.20` |
 | Unhealthy | 3 failed probes in a row | Excluded from new flows |
 | Recovering | First successful probe after a failure | Eligible, penalty `+0.35` for a 5 second cooldown |
 
@@ -126,7 +126,7 @@ pip install -r requirements.txt
 
 ```bash
 # Terminal 1: start the controller
-python3 -m controller.ryu_controller
+python3 -m controller.standalone_controller
 
 # Terminal 2: start the topology as root
 sudo python3 -m topology.mininet_topo
@@ -134,6 +134,8 @@ sudo python3 -m topology.mininet_topo
 # Mininet CLI: send traffic from h1
 mininet> h1 python3 -m client.load_generator --vip 10.0.0.100 --port 8000 --requests 100 --concurrency 10
 ```
+
+The standalone controller has no external OpenFlow dependency. If Ryu is installed, `python3 -m controller.ryu_controller` provides the same behavior.
 
 To inspect the installed rules while traffic is flowing:
 

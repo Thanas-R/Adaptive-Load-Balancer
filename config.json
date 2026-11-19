@@ -4,6 +4,8 @@
     "vip_mac": "00:00:00:00:00:fe",
     "service_port": 8000,
     "subnet": "10.0.0.0/24",
+    "control_subnet": "192.168.50.0/24",
+    "control_ip": "192.168.50.1",
     "switch_dpid": 1
   },
   "client": {
@@ -19,6 +21,7 @@
       "mac": "00:00:00:00:00:02",
       "service_port": 8000,
       "telemetry_port": 9002,
+      "telemetry_ip": "192.168.50.2",
       "switch_port": 2,
       "capacity": 100,
       "initial_delay_ms": 20.0
@@ -29,6 +32,7 @@
       "mac": "00:00:00:00:00:03",
       "service_port": 8000,
       "telemetry_port": 9003,
+      "telemetry_ip": "192.168.50.3",
       "switch_port": 3,
       "capacity": 100,
       "initial_delay_ms": 20.0
@@ -39,6 +43,7 @@
       "mac": "00:00:00:00:00:04",
       "service_port": 8000,
       "telemetry_port": 9004,
+      "telemetry_ip": "192.168.50.4",
       "switch_port": 4,
       "capacity": 100,
       "initial_delay_ms": 20.0
@@ -58,6 +63,8 @@
       "error_rate": 0.15
     },
     "ema_alpha": 0.25,
+    "degraded_latency_ms": 150.0,
+    "latency_tolerance_ms": 5.0,
     "health_check": {
       "probe_interval_sec": 1.0,
       "timeout_sec": 2.5,

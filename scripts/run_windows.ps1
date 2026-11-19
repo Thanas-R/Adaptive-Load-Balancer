@@ -1,7 +1,3 @@
-# ==============================================================================
-# PowerShell Runner for SDN-Based Adaptive Load Balancer on Windows
-# ==============================================================================
-
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " Launching SDN Adaptive Load Balancer on Windows Terminal" -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan

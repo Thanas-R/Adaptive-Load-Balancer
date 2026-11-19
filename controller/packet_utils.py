@@ -1,5 +1,3 @@
-"""Packet parser and serializer for Ethernet, ARP, IPv4, and TCP."""
-
 from __future__ import annotations
 
 import socket
@@ -68,17 +66,18 @@ class TcpSegment(NamedTuple):
     payload: bytes
 
 
-def format_mac(b: bytes) -> str:
-    return ":".join(f"{x:02x}" for x in b)
+def format_mac(data: bytes) -> str:
+    return ":".join(f"{value:02x}" for value in data)
 
 
 def parse_ethernet(data: bytes) -> Optional[EthernetFrame]:
     if len(data) < 14:
         return None
-    dst_mac_raw, src_mac_raw, eth_type = struct.unpack("!6s6sH", data[:14])
+
+    dst, src, eth_type = struct.unpack("!6s6sH", data[:14])
     return EthernetFrame(
-        dst_mac=format_mac(dst_mac_raw),
-        src_mac=format_mac(src_mac_raw),
+        dst_mac=format_mac(dst),
+        src_mac=format_mac(src),
         eth_type=eth_type,
         payload=data[14:],
     )
@@ -87,89 +86,105 @@ def parse_ethernet(data: bytes) -> Optional[EthernetFrame]:
 def parse_arp(data: bytes) -> Optional[ArpPacket]:
     if len(data) < 28:
         return None
-    hw_t, proto_t, hw_s, proto_s, op, s_mac, s_ip, d_mac, d_ip = struct.unpack("!HHBBH6s4s6s4s", data[:28])
+
+    hw_type, proto_type, hw_size, proto_size, opcode, src_mac, src_ip, dst_mac, dst_ip = struct.unpack(
+        "!HHBBH6s4s6s4s", data[:28]
+    )
     return ArpPacket(
-        hw_type=hw_t,
-        proto_type=proto_t,
-        hw_size=hw_s,
-        proto_size=proto_s,
-        opcode=op,
-        src_mac=format_mac(s_mac),
-        src_ip=socket.inet_ntoa(s_ip),
-        dst_mac=format_mac(d_mac),
-        dst_ip=socket.inet_ntoa(d_ip),
+        hw_type=hw_type,
+        proto_type=proto_type,
+        hw_size=hw_size,
+        proto_size=proto_size,
+        opcode=opcode,
+        src_mac=format_mac(src_mac),
+        src_ip=socket.inet_ntoa(src_ip),
+        dst_mac=format_mac(dst_mac),
+        dst_ip=socket.inet_ntoa(dst_ip),
     )
 
 
-def create_arp_reply(
-    sender_mac: str,
-    sender_ip: str,
-    target_mac: str,
-    target_ip: str,
-) -> bytes:
-    """Build an Ethernet + ARP reply packet."""
-    s_mac_bytes = bytes(int(x, 16) for x in sender_mac.split(":"))
-    t_mac_bytes = bytes(int(x, 16) for x in target_mac.split(":"))
-    s_ip_bytes = socket.inet_aton(sender_ip)
-    t_ip_bytes = socket.inet_aton(target_ip)
+def create_arp_reply(sender_mac: str, sender_ip: str, target_mac: str, target_ip: str) -> bytes:
+    sender_mac_bytes = bytes(int(part, 16) for part in sender_mac.split(":"))
+    target_mac_bytes = bytes(int(part, 16) for part in target_mac.split(":"))
+    sender_ip_bytes = socket.inet_aton(sender_ip)
+    target_ip_bytes = socket.inet_aton(target_ip)
 
-    eth_hdr = struct.pack("!6s6sH", t_mac_bytes, s_mac_bytes, ETH_TYPE_ARP)
-    arp_hdr = struct.pack(
+    ethernet = struct.pack("!6s6sH", target_mac_bytes, sender_mac_bytes, ETH_TYPE_ARP)
+    arp = struct.pack(
         "!HHBBH6s4s6s4s",
-        1,  # Ethernet
+        1,
         ETH_TYPE_IPV4,
-        6,  # MAC len
-        4,  # IP len
+        6,
+        4,
         ARP_OP_REPLY,
-        s_mac_bytes,
-        s_ip_bytes,
-        t_mac_bytes,
-        t_ip_bytes,
+        sender_mac_bytes,
+        sender_ip_bytes,
+        target_mac_bytes,
+        target_ip_bytes,
     )
-    return eth_hdr + arp_hdr
+    return ethernet + arp
 
 
 def parse_ipv4(data: bytes) -> Optional[IPv4Packet]:
     if len(data) < 20:
         return None
-    v_ihl, tos, tot_len, ident, flags_frag, ttl, proto, csum, s_ip, d_ip = struct.unpack("!BBHHHBBH4s4s", data[:20])
-    version = v_ihl >> 4
-    ihl = (v_ihl & 0x0F) * 4
-    if len(data) < ihl:
+
+    (
+        version_ihl,
+        tos,
+        total_length,
+        identification,
+        flags,
+        ttl,
+        protocol,
+        checksum,
+        src_ip,
+        dst_ip,
+    ) = struct.unpack("!BBHHHBBH4s4s", data[:20])
+
+    version = version_ihl >> 4
+    ihl = (version_ihl & 0x0F) * 4
+    if ihl < 20 or len(data) < ihl:
         return None
+
+    end = total_length if total_length >= ihl else len(data)
     return IPv4Packet(
         version=version,
         ihl=ihl,
         tos=tos,
-        total_length=tot_len,
-        identification=ident,
-        flags=flags_frag,
+        total_length=total_length,
+        identification=identification,
+        flags=flags,
         ttl=ttl,
-        protocol=proto,
-        checksum=csum,
-        src_ip=socket.inet_ntoa(s_ip),
-        dst_ip=socket.inet_ntoa(d_ip),
-        payload=data[ihl:tot_len] if tot_len > 0 else data[ihl:],
+        protocol=protocol,
+        checksum=checksum,
+        src_ip=socket.inet_ntoa(src_ip),
+        dst_ip=socket.inet_ntoa(dst_ip),
+        payload=data[ihl:end],
     )
 
 
 def parse_tcp(data: bytes) -> Optional[TcpSegment]:
     if len(data) < 20:
         return None
-    s_port, d_port, seq, ack, offset_reserved, flags, win, csum, urg = struct.unpack("!HHIIBBHHH", data[:20])
+
+    src_port, dst_port, seq, ack, offset_reserved, flags, window, checksum, urgent = struct.unpack(
+        "!HHIIBBHHH", data[:20]
+    )
     data_offset = (offset_reserved >> 4) * 4
-    if len(data) < data_offset:
+    if data_offset < 20 or len(data) < data_offset:
         return None
+
     return TcpSegment(
-        src_port=s_port,
-        dst_port=d_port,
+        src_port=src_port,
+        dst_port=dst_port,
         seq_num=seq,
         ack_num=ack,
         data_offset=data_offset,
         flags=flags,
-        window_size=win,
-        checksum=csum,
-        urgent_ptr=urg,
+        window_size=window,
+        checksum=checksum,
+        urgent_ptr=urgent,
         is_syn=bool(flags & 0x02),
         is_ack=bool(flags & 0x10),
         is_fin=bool(flags & 0x01),
